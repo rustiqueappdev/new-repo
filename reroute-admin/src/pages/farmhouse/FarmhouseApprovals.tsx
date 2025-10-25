@@ -13,7 +13,15 @@ import {
 } from '@mui/material';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { Farmhouse } from '../../types';
+import { 
+  Farmhouse,
+  getFarmhouseName,
+  getFarmhouseLocation,
+  getFarmhouseDescription,
+  getFarmhouseImages,
+  getFarmhouseBaseRate,
+  getFarmhouseCapacity
+} from '../../types';
 import MainLayout from '../../components/layout/MainLayout';
 import FarmhouseDetailModal from '../../components/farmhouse/FarmhouseDetailModal';
 
@@ -30,18 +38,30 @@ const FarmhouseApprovals: React.FC = () => {
   const fetchPendingFarmhouses = async () => {
     try {
       setLoading(true);
+      
+      console.log('🔍 Fetching farmhouses with status: pending');
+      
+      // Mobile app uses "pending" status
       const q = query(
         collection(db, 'farmhouses'),
-        where('status', '==', 'pending_approval')
+        where('status', '==', 'pending')
       );
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({
-        farmhouse_id: doc.id,
-        ...doc.data()
-      })) as Farmhouse[];
+      
+      console.log(`📊 Found ${snapshot.size} pending farmhouses`);
+      
+      const data = snapshot.docs.map(doc => {
+        const docData = doc.data();
+        console.log('📄 Farmhouse:', doc.id, docData);
+        return {
+          farmhouse_id: doc.id,
+          ...docData
+        };
+      }) as Farmhouse[];
+      
       setFarmhouses(data);
     } catch (error) {
-      console.error('Error fetching farmhouses:', error);
+      console.error('❌ Error fetching farmhouses:', error);
     } finally {
       setLoading(false);
     }
@@ -83,47 +103,64 @@ const FarmhouseApprovals: React.FC = () => {
         </Typography>
 
         {farmhouses.length === 0 ? (
-          <Alert severity='info'>No pending farmhouse approvals at the moment.</Alert>
+          <Alert severity='info'>
+            No pending farmhouse approvals at the moment.
+            <br /><br />
+            <strong>Note:</strong> This page shows farmhouses with status "pending" from the mobile app.
+          </Alert>
         ) : (
           <Grid container spacing={3}>
-            {farmhouses.map((farmhouse) => (
-              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={farmhouse.farmhouse_id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <CardMedia
-                    component='img'
-                    height='200'
-                    image={farmhouse.images[0] || 'https://via.placeholder.com/400x200?text=No+Image'}
-                    alt={farmhouse.name}
-                    sx={{ objectFit: 'cover' }}
-                  />
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Typography variant='h6' fontWeight='bold' gutterBottom>
-                      {farmhouse.name}
-                    </Typography>
-                    <Typography variant='body2' color='text.secondary' gutterBottom>
-                      {farmhouse.location}
-                    </Typography>
-                    <Typography variant='body2' sx={{ mb: 2 }}>
-                      {farmhouse.description.substring(0, 100)}...
-                    </Typography>
-                    
-                    <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                      <Chip label={`₹${farmhouse.base_rate}/night`} size='small' color='primary' />
-                      <Chip label={`Max: ${farmhouse.max_guests} guests`} size='small' />
-                      <Chip label='Pending' size='small' color='warning' />
-                    </Box>
+            {farmhouses.map((farmhouse) => {
+              const name = getFarmhouseName(farmhouse);
+              const location = getFarmhouseLocation(farmhouse);
+              const description = getFarmhouseDescription(farmhouse);
+              const images = getFarmhouseImages(farmhouse);
+              const baseRate = getFarmhouseBaseRate(farmhouse);
+              const capacity = getFarmhouseCapacity(farmhouse);
+              
+              return (
+                <Grid size={{ xs: 12, md: 6, lg: 4 }} key={farmhouse.farmhouse_id}>
+                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <CardMedia
+                      component='img'
+                      height='200'
+                      image={images[0] || 'https://via.placeholder.com/400x200?text=No+Image'}
+                      alt={name}
+                      sx={{ objectFit: 'cover' }}
+                    />
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Typography variant='h6' fontWeight='bold' gutterBottom>
+                        {name}
+                      </Typography>
+                      <Typography variant='body2' color='text.secondary' gutterBottom>
+                        {location}
+                      </Typography>
+                      <Typography variant='body2' sx={{ mb: 2 }}>
+                        {description.substring(0, 100)}{description.length > 100 ? '...' : ''}
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                        {baseRate > 0 && (
+                          <Chip label={`₹${baseRate}/night`} size='small' color='primary' />
+                        )}
+                        {capacity > 0 && (
+                          <Chip label={`Max: ${capacity} guests`} size='small' />
+                        )}
+                        <Chip label='Pending' size='small' color='warning' />
+                      </Box>
 
-                    <Button
-                      fullWidth
-                      variant='contained'
-                      onClick={() => handleViewDetails(farmhouse)}
-                    >
-                      Review & Approve
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
+                      <Button
+                        fullWidth
+                        variant='contained'
+                        onClick={() => handleViewDetails(farmhouse)}
+                      >
+                        Review & Approve
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
           </Grid>
         )}
 
