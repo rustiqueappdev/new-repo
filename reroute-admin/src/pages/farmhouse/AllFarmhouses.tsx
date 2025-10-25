@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-
 import {
   Box,
   Typography,
@@ -20,10 +19,16 @@ import {
   IconButton,
   CircularProgress
 } from '@mui/material';
-import { Visibility, Edit } from '@mui/icons-material';
+import { Visibility } from '@mui/icons-material';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { Farmhouse } from '../../types';
+import { 
+  Farmhouse,
+  getFarmhouseName,
+  getFarmhouseLocation,
+  getFarmhouseBaseRate,
+  getFarmhouseCapacity
+} from '../../types';
 import MainLayout from '../../components/layout/MainLayout';
 
 const AllFarmhouses: React.FC = () => {
@@ -60,10 +65,12 @@ const AllFarmhouses: React.FC = () => {
     let result = farmhouses;
 
     if (searchTerm) {
-      result = result.filter(f => 
-        f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        f.location.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const search = searchTerm.toLowerCase();
+      result = result.filter(f => {
+        const name = getFarmhouseName(f).toLowerCase();
+        const location = getFarmhouseLocation(f).toLowerCase();
+        return name.includes(search) || location.includes(search);
+      });
     }
 
     if (statusFilter !== 'all') {
@@ -104,8 +111,8 @@ const AllFarmhouses: React.FC = () => {
               <InputLabel>Status</InputLabel>
               <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <MenuItem value='all'>All</MenuItem>
-                <MenuItem value='active'>Active</MenuItem>
-                <MenuItem value='pending_approval'>Pending</MenuItem>
+                <MenuItem value='approved'>Approved</MenuItem>
+                <MenuItem value='pending'>Pending</MenuItem>
                 <MenuItem value='rejected'>Rejected</MenuItem>
               </Select>
             </FormControl>
@@ -128,18 +135,24 @@ const AllFarmhouses: React.FC = () => {
             <TableBody>
               {filtered.map((farmhouse) => (
                 <TableRow key={farmhouse.farmhouse_id}>
-                 <TableCell><Typography fontWeight='bold'>{farmhouse.name}</Typography></TableCell>
-                  <TableCell>{farmhouse.location}</TableCell>
-                  <TableCell>₹{farmhouse.base_rate}</TableCell>
+                  <TableCell>
+                    <Typography fontWeight='bold'>{getFarmhouseName(farmhouse)}</Typography>
+                  </TableCell>
+                  <TableCell>{getFarmhouseLocation(farmhouse)}</TableCell>
+                  <TableCell>₹{getFarmhouseBaseRate(farmhouse)}</TableCell>
                   <TableCell>{farmhouse.commission_percentage || 0}%</TableCell>
                   <TableCell>
                     <Chip 
                       label={farmhouse.status} 
-                      color={farmhouse.status === 'active' ? 'success' : farmhouse.status === 'pending_approval' ? 'warning' : 'error'}
+                      color={
+                        farmhouse.status === 'approved' ? 'success' : 
+                        farmhouse.status === 'pending' ? 'warning' : 
+                        'error'
+                      }
                       size='small'
                     />
                   </TableCell>
-                  <TableCell>{farmhouse.max_guests}</TableCell>
+                  <TableCell>{getFarmhouseCapacity(farmhouse)}</TableCell>
                   <TableCell>
                     <IconButton size='small'>
                       <Visibility />

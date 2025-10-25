@@ -33,6 +33,7 @@ interface Review {
   comment: string;
   status: 'pending' | 'approved' | 'rejected' | 'flagged';
   created_at: any;
+  admin_response?: string;
 }
 
 const ReviewManagement: React.FC = () => {
@@ -101,78 +102,108 @@ const ReviewManagement: React.FC = () => {
           Review Management
         </Typography>
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>User</TableCell>
-                <TableCell>Farmhouse</TableCell>
-                <TableCell>Rating</TableCell>
-                <TableCell>Comment</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {reviews.map((review) => (
-                <TableRow key={review.review_id}>
-                  <TableCell>{review.user_id.substring(0, 8)}</TableCell>
-                  <TableCell>{review.farmhouse_id.substring(0, 8)}</TableCell>
-                  <TableCell>
-                    <Rating value={review.rating} readOnly size='small' />
-                  </TableCell>
-                  <TableCell>{review.comment?.substring(0, 50)}...</TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={review.status} 
-                      color={review.status === 'approved' ? 'success' : review.status === 'rejected' ? 'error' : 'warning'}
-                      size='small'
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {review.status === 'pending' && (
-                      <>
-                        <IconButton 
-                          size='small' 
-                          color='success'
-                          onClick={() => handleUpdateStatus(review.review_id, 'approved')}
-                        >
-                          <CheckCircle />
-                        </IconButton>
-                        <IconButton 
-                          size='small' 
-                          color='error'
-                          onClick={() => handleUpdateStatus(review.review_id, 'rejected')}
-                        >
-                          <Cancel />
-                        </IconButton>
-                      </>
-                    )}
-                    <IconButton 
-                      size='small' 
-                      onClick={() => handleUpdateStatus(review.review_id, 'flagged')}
-                    >
-                      <Flag />
-                    </IconButton>
-                    <Button
-                      size='small'
-                      onClick={() => {
-                        setSelectedReview(review);
-                        setDialogOpen(true);
-                      }}
-                    >
-                      Respond
-                    </Button>
-                  </TableCell>
+        {reviews.length === 0 ? (
+          <Paper sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant='h6' color='text.secondary'>
+              No reviews found
+            </Typography>
+          </Paper>
+        ) : (
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>User</TableCell>
+                  <TableCell>Farmhouse</TableCell>
+                  <TableCell>Rating</TableCell>
+                  <TableCell>Comment</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Actions</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {reviews.map((review) => (
+                  <TableRow key={review.review_id}>
+                    <TableCell>
+                      {review.user_id ? review.user_id.substring(0, 8) : 'Unknown'}
+                    </TableCell>
+                    <TableCell>
+                      {review.farmhouse_id ? review.farmhouse_id.substring(0, 8) : 'Unknown'}
+                    </TableCell>
+                    <TableCell>
+                      <Rating value={review.rating || 0} readOnly size='small' />
+                    </TableCell>
+                    <TableCell>
+                      {review.comment ? (
+                        review.comment.length > 50 
+                          ? `${review.comment.substring(0, 50)}...` 
+                          : review.comment
+                      ) : 'No comment'}
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={review.status || 'pending'} 
+                        color={
+                          review.status === 'approved' ? 'success' : 
+                          review.status === 'rejected' ? 'error' : 
+                          'warning'
+                        }
+                        size='small'
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {review.status === 'pending' && (
+                        <>
+                          <IconButton 
+                            size='small' 
+                            color='success'
+                            onClick={() => handleUpdateStatus(review.review_id, 'approved')}
+                          >
+                            <CheckCircle />
+                          </IconButton>
+                          <IconButton 
+                            size='small' 
+                            color='error'
+                            onClick={() => handleUpdateStatus(review.review_id, 'rejected')}
+                          >
+                            <Cancel />
+                          </IconButton>
+                        </>
+                      )}
+                      <IconButton 
+                        size='small' 
+                        onClick={() => handleUpdateStatus(review.review_id, 'flagged')}
+                      >
+                        <Flag />
+                      </IconButton>
+                      <Button
+                        size='small'
+                        onClick={() => {
+                          setSelectedReview(review);
+                          setDialogOpen(true);
+                        }}
+                      >
+                        Respond
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
 
         <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth='sm' fullWidth>
           <DialogTitle>Admin Response</DialogTitle>
           <DialogContent>
+            {selectedReview && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant='body2' color='text.secondary'>
+                  Review: {selectedReview.comment}
+                </Typography>
+                <Rating value={selectedReview.rating} readOnly size='small' sx={{ mt: 1 }} />
+              </Box>
+            )}
             <TextField
               fullWidth
               multiline
