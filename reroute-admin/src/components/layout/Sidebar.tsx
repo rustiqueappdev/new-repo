@@ -10,7 +10,9 @@ import {
   Box,
   Typography,
   Divider,
-  Badge
+  Badge,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import {
   Dashboard,
@@ -31,11 +33,15 @@ const drawerWidth = 260;
 
 interface SidebarProps {
   pendingCount?: number;
+  mobileOpen: boolean;
+  onDrawerToggle: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0 }) => {
+const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, mobileOpen, onDrawerToggle }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const menuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
@@ -51,53 +57,52 @@ const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0 }) => {
     { text: 'Communications', icon: <Email />, path: '/communications' }
   ];
 
-  return (
-    <Drawer
-      variant='permanent'
-      sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: drawerWidth,
-          boxSizing: 'border-box',
-          backgroundColor: '#1a1a2e',
-          color: 'white'
-        },
-      }}
-    >
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Home sx={{ fontSize: 40, color: '#4CAF50', mb: 1 }} />
-        <Typography variant='h5' fontWeight='bold'>
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    if (isMobile) {
+      onDrawerToggle();
+    }
+  };
+
+  const drawerContent = (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center' }}>
+        <Home sx={{ fontSize: { xs: 32, sm: 40 }, color: 'primary.main', mb: 1 }} />
+        <Typography variant='h5' fontWeight='bold' sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
           ReRoute
         </Typography>
-        <Typography variant='caption' color='#aaa'>
+        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
           Admin Panel
         </Typography>
       </Box>
 
-      <Divider sx={{ borderColor: '#333' }} />
+      <Divider />
 
-      <List sx={{ mt: 2 }}>
+      <List sx={{ mt: 1, flex: 1, overflowY: 'auto', px: 1 }}>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
-              onClick={() => navigate(item.path)}
+              onClick={() => handleNavigation(item.path)}
               selected={location.pathname === item.path}
               sx={{
-                mx: 1,
                 borderRadius: 2,
+                py: { xs: 1.5, sm: 1.25 },
                 '&.Mui-selected': {
-                  backgroundColor: '#4CAF50',
+                  backgroundColor: 'primary.main',
+                  color: 'white',
                   '&:hover': {
-                    backgroundColor: '#45a049',
+                    backgroundColor: 'primary.dark',
+                  },
+                  '& .MuiListItemIcon-root': {
+                    color: 'white',
                   },
                 },
                 '&:hover': {
-                  backgroundColor: '#2a2a3e',
+                  backgroundColor: 'action.hover',
                 },
               }}
             >
-              <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}>
+              <ListItemIcon sx={{ color: 'text.secondary', minWidth: { xs: 36, sm: 40 } }}>
                 {item.badge && item.badge > 0 ? (
                   <Badge badgeContent={item.badge} color='error'>
                     {item.icon}
@@ -106,12 +111,59 @@ const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0 }) => {
                   item.icon
                 )}
               </ListItemIcon>
-              <ListItemText primary={item.text} />
+              <ListItemText
+                primary={item.text}
+                primaryTypographyProps={{
+                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
       </List>
-    </Drawer>
+    </Box>
+  );
+
+  return (
+    <Box component='nav'>
+      {/* Mobile drawer */}
+      <Drawer
+        variant='temporary'
+        open={mobileOpen}
+        onClose={onDrawerToggle}
+        ModalProps={{
+          keepMounted: true, // Better open performance on mobile
+        }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          '& .MuiDrawer-paper': {
+            width: drawerWidth,
+            boxSizing: 'border-box',
+          },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+
+      {/* Desktop drawer */}
+      <Drawer
+        variant='permanent'
+        sx={{
+          display: { xs: 'none', md: 'block' },
+          width: drawerWidth,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: drawerWidth,
+            boxSizing: 'border-box',
+            borderRight: '1px solid',
+            borderColor: 'divider',
+          },
+        }}
+        open
+      >
+        {drawerContent}
+      </Drawer>
+    </Box>
   );
 };
 

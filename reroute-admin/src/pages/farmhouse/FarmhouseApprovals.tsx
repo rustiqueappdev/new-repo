@@ -38,21 +38,16 @@ const FarmhouseApprovals: React.FC = () => {
   const fetchPendingFarmhouses = async () => {
     try {
       setLoading(true);
-      
-      console.log('🔍 Fetching farmhouses with status: pending');
-      
+
       // Mobile app uses "pending" status
       const q = query(
         collection(db, 'farmhouses'),
         where('status', '==', 'pending')
       );
       const snapshot = await getDocs(q);
-      
-      console.log(`📊 Found ${snapshot.size} pending farmhouses`);
-      
+
       const data = snapshot.docs.map(doc => {
         const docData = doc.data();
-        console.log('📄 Farmhouse:', doc.id, docData);
         return {
           farmhouse_id: doc.id,
           ...docData

@@ -44,17 +44,12 @@ const UsersManagement: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      
-      console.log('🔍 Fetching users from Firebase...');
-      
+
       const snapshot = await getDocs(collection(db, 'users'));
-      
-      console.log(`📊 Found ${snapshot.size} users in database`);
-      
+
       const data = snapshot.docs.map(doc => {
         const userData = doc.data();
-        console.log('User data:', doc.id, userData);
-        
+
         return {
           user_id: doc.id,
           name: userData.name || userData.displayName || 'Unknown',
@@ -67,8 +62,7 @@ const UsersManagement: React.FC = () => {
           owner_kyc: userData.owner_kyc || userData.ownerKyc || undefined
         } as User;
       });
-      
-      console.log(`✅ Processed ${data.length} users`);
+
       setUsers(data);
       
       if (data.length === 0) {

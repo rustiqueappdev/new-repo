@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -11,7 +11,7 @@ import {
   Paper,
   Chip,
   Button,
-  Grid  as Grid,
+  Grid,
   Card,
   CardContent,
   CircularProgress
@@ -32,11 +32,7 @@ const PaymentsCommission: React.FC = () => {
     completedPayouts: 0
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const snapshot = await getDocs(collection(db, 'bookings'));
       const data = snapshot.docs.map(doc => ({
@@ -51,7 +47,11 @@ const PaymentsCommission: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const calculateStats = (data: Booking[]) => {
     const totalRevenue = data.reduce((sum, b) => sum + (b.total_amount || 0), 0);
@@ -155,29 +155,39 @@ const PaymentsCommission: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {bookings.filter(b => !b.commission_paid_to_owner && b.booking_id).map((booking) => (
-                <TableRow key={booking.booking_id}>
-                  <TableCell>{booking.booking_id?.substring(0, 8) || 'N/A'}</TableCell>
-                  <TableCell>{booking.farmhouse_id?.substring(0, 8) || 'N/A'}</TableCell>
-                  <TableCell>₹{booking.total_amount || 0}</TableCell>
-                  <TableCell>₹{booking.commission_amount || 0}</TableCell>
-                  <TableCell>
-                    <strong>₹{(booking.total_amount || 0) - (booking.commission_amount || 0)}</strong>
-                  </TableCell>
-                  <TableCell>
-                    <Chip label='Pending' color='warning' size='small' />
-                  </TableCell>
-                  <TableCell>
-                    <Button 
-                      size='small' 
-                      variant='contained' 
-                      onClick={() => markAsPaid(booking.booking_id)}
-                    >
-                      Mark as Paid
-                    </Button>
+              {bookings.filter(b => !b.commission_paid_to_owner && b.booking_id).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align='center' sx={{ py: 4 }}>
+                    <Typography color='text.secondary'>
+                      No pending payouts at the moment. All commissions have been paid to owners.
+                    </Typography>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                bookings.filter(b => !b.commission_paid_to_owner && b.booking_id).map((booking) => (
+                  <TableRow key={booking.booking_id}>
+                    <TableCell>{booking.booking_id?.substring(0, 8) || 'N/A'}</TableCell>
+                    <TableCell>{booking.farmhouse_id?.substring(0, 8) || 'N/A'}</TableCell>
+                    <TableCell>₹{booking.total_amount?.toLocaleString() || '0'}</TableCell>
+                    <TableCell>₹{booking.commission_amount?.toLocaleString() || '0'}</TableCell>
+                    <TableCell>
+                      <strong>₹{((booking.total_amount || 0) - (booking.commission_amount || 0)).toLocaleString()}</strong>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label='Pending' color='warning' size='small' />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size='small'
+                        variant='contained'
+                        onClick={() => markAsPaid(booking.booking_id)}
+                      >
+                        Mark as Paid
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>

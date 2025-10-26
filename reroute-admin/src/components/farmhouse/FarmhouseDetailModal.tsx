@@ -126,10 +126,11 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
   };
 
   const fetchOwnerData = async () => {
-    if (!farmhouse?.owner_id) return;
+    const ownerId = getFarmhouseOwnerId(farmhouse);
+    if (!ownerId) return;
     
     try {
-      const ownerDoc = await getDoc(doc(db, 'users', farmhouse.owner_id));
+      const ownerDoc = await getDoc(doc(db, 'users', ownerId));
       if (ownerDoc.exists()) {
         setOwnerData({ user_id: ownerDoc.id, ...ownerDoc.data() } as User);
       }
@@ -139,16 +140,17 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
   };
 
   const fetchOwnerStats = async () => {
-    if (!farmhouse?.owner_id) return;
+    const ownerId = getFarmhouseOwnerId(farmhouse);
+    if (!ownerId) return;
     
     try {
       const propertiesQuery = query(
         collection(db, 'farmhouses'),
-        where('owner_id', '==', farmhouse.owner_id)
+        where('ownerId', '==', ownerId)
       );
       const propertiesSnap = await getDocs(propertiesQuery);
       
-      const approved = propertiesSnap.docs.filter(doc => doc.data().status === 'active').length;
+      const approved = propertiesSnap.docs.filter(doc => doc.data().status === 'approved').length;
       const rejected = propertiesSnap.docs.filter(doc => doc.data().status === 'rejected').length;
 
       const bookingsQuery = query(
@@ -206,21 +208,13 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
 
   const handleConfirmApproval = async (commission?: number, reason?: string) => {
     try {
-      console.log('🔄 Starting approval process...');
-      console.log('Farmhouse ID:', farmhouse.farmhouse_id);
-      console.log('Approval Type:', approvalType);
-      console.log('Commission:', commission);
-      console.log('Reason:', reason);
-
       if (!farmhouse.farmhouse_id) {
         throw new Error('Invalid farmhouse ID');
       }
 
       const farmhouseRef = doc(db, 'farmhouses', farmhouse.farmhouse_id);
-      
+
       if (approvalType === 'approve' && commission !== undefined) {
-        console.log('✅ Approving farmhouse...');
-        
         const ownerId = getFarmhouseOwnerId(farmhouse);
         
         // Update farmhouse - use "approved" status for mobile app
@@ -230,8 +224,6 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
           approved_by: currentUser?.uid || 'admin',
           approved_at: serverTimestamp()
         });
-
-        console.log('✅ Farmhouse updated successfully');
 
         // Update owner KYC if exists (try both old and new structure)
         if (ownerId) {
@@ -244,7 +236,6 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                 'owner_kyc.status': 'approved',
                 kyc_status: 'approved'
               });
-              console.log('✅ Owner KYC updated');
             }
           } catch (kycError) {
             console.warn('⚠️ Could not update owner KYC:', kycError);
@@ -261,17 +252,14 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
             approved_by: currentUser?.uid || 'admin',
             timestamp: serverTimestamp()
           });
-          console.log('✅ Approval history added');
         } catch (historyError) {
           console.warn('⚠️ Could not add approval history:', historyError);
           // Don't fail the entire approval if history fails
         }
 
         alert('✅ Farmhouse approved successfully!');
-        
+
       } else if (approvalType === 'reject' && reason) {
-        console.log('❌ Rejecting farmhouse...');
-        
         // Update farmhouse to rejected
         await updateDoc(farmhouseRef, {
           status: 'rejected',
@@ -279,8 +267,6 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
           rejected_by: currentUser?.uid || 'admin',
           rejected_at: serverTimestamp()
         });
-
-        console.log('✅ Farmhouse rejected successfully');
 
         // Add to approval history
         try {
@@ -291,7 +277,6 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
             rejected_by: currentUser?.uid || 'admin',
             timestamp: serverTimestamp()
           });
-          console.log('✅ Rejection history added');
         } catch (historyError) {
           console.warn('⚠️ Could not add rejection history:', historyError);
         }

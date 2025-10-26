@@ -46,8 +46,6 @@ const DatabaseFixUtility: React.FC = () => {
       });
       
       setStatusDistribution(distribution);
-      
-      console.log('📊 Database Analysis:', distribution);
     } catch (err: any) {
       setError(`Analysis failed: ${err.message}`);
       console.error('Error analyzing database:', err);
@@ -63,9 +61,10 @@ const DatabaseFixUtility: React.FC = () => {
       setSuccess('');
       setResults([]);
       
-      // Status values that should be converted to 'pending_approval'
-      // Including "approved" since that's what your mobile app is using
-      const incorrectStatuses = ['pending', 'draft', 'submitted', 'awaiting_approval', 'approved'];
+      // ⚠️ FIXED: Only convert truly incorrect status values
+      // DO NOT convert 'pending' or 'approved' - these are the correct values used by mobile app!
+      // Mobile app flow: 'pending' → (admin approves) → 'approved'
+      const incorrectStatuses = ['draft', 'submitted', 'awaiting_approval'];
       
       const fixedFarmhouses: FixResult[] = [];
       const batch = writeBatch(db);
@@ -78,9 +77,7 @@ const DatabaseFixUtility: React.FC = () => {
         );
         
         const snapshot = await getDocs(q);
-        
-        console.log(`Found ${snapshot.size} farmhouses with status: ${incorrectStatus}`);
-        
+
         for (const farmhouseDoc of snapshot.docs) {
           const data = farmhouseDoc.data();
           
@@ -142,14 +139,16 @@ const DatabaseFixUtility: React.FC = () => {
             </Box>
           </Box>
 
-          <Alert severity='warning' sx={{ mb: 2 }}>
+          <Alert severity='info' sx={{ mb: 2 }}>
             <Typography variant='body2' fontWeight='bold' gutterBottom>
-              ⚠️ What this fixes:
+              ℹ️ What this utility does:
             </Typography>
             <Typography variant='body2'>
-              • Changes "approved" status to "pending_approval"
+              • Converts incorrect status values like "draft", "submitted", "awaiting_approval" to "pending_approval"
               <br />
-              • This will make farmhouses visible in the Farmhouse Approvals page
+              • Does NOT change "pending" or "approved" (these are correct!)
+              <br />
+              • Only use if you have farmhouses with incorrect status values
               <br />
               • Safe to run multiple times
             </Typography>

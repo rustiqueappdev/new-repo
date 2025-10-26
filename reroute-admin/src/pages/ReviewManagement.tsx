@@ -129,8 +129,7 @@ const ReviewManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       {review.farmhouse_id ? review.farmhouse_id.substring(0, 8) : 'Unknown'}
-                    </TableCell>
-                    <TableCell>
+                    </TableCell>                    <TableCell>
                       <Rating value={review.rating || 0} readOnly size='small' />
                     </TableCell>
                     <TableCell>
@@ -170,7 +169,7 @@ const ReviewManagement: React.FC = () => {
                           </IconButton>
                         </>
                       )}
-                      <IconButton 
+                      <IconButton
                         size='small' 
                         onClick={() => handleUpdateStatus(review.review_id, 'flagged')}
                       >
