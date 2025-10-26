@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -14,7 +14,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Grid as Grid,
+  Grid,
   CircularProgress
 } from '@mui/material';
 import { collection, getDocs } from 'firebase/firestore';
@@ -29,13 +29,19 @@ const BookingsManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
+  const filterBookings = useCallback(() => {
+    let result = bookings;
 
-  useEffect(() => {
-    filterBookings();
-  }, [statusFilter, paymentFilter, bookings]);
+    if (statusFilter !== 'all') {
+      result = result.filter(b => b.status === statusFilter);
+    }
+
+    if (paymentFilter !== 'all') {
+      result = result.filter(b => b.payment_status === paymentFilter);
+    }
+
+    setFiltered(result);
+  }, [bookings, statusFilter, paymentFilter]);
 
   const fetchBookings = async () => {
     try {
@@ -52,19 +58,13 @@ const BookingsManagement: React.FC = () => {
     }
   };
 
-  const filterBookings = () => {
-    let result = bookings;
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
-    if (statusFilter !== 'all') {
-      result = result.filter(b => b.status === statusFilter);
-    }
-
-    if (paymentFilter !== 'all') {
-      result = result.filter(b => b.payment_status === paymentFilter);
-    }
-
-    setFiltered(result);
-  };
+  useEffect(() => {
+    filterBookings();
+  }, [statusFilter, paymentFilter, bookings, filterBookings]);
 
   if (loading) {
     return (
@@ -108,8 +108,8 @@ const BookingsManagement: React.FC = () => {
           </Grid>
         </Grid>
 
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+          <Table sx={{ minWidth: { xs: 650, sm: 750 } }}>
             <TableHead>
               <TableRow>
                 <TableCell>Booking ID</TableCell>
@@ -122,31 +122,52 @@ const BookingsManagement: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.map((booking) => (
-                <TableRow key={booking.booking_id}>
-                  <TableCell>{booking.booking_id.substring(0, 8)}</TableCell>
-                  <TableCell>
-                    {new Date(booking.start_date?.toDate?.()).toLocaleDateString()} - {new Date(booking.end_date?.toDate?.()).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>{booking.guest_count}</TableCell>
-                  <TableCell>₹{booking.total_amount}</TableCell>
-                  <TableCell>₹{booking.commission_amount}</TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={booking.payment_status} 
-                      color={booking.payment_status === 'paid' ? 'success' : booking.payment_status === 'refunded' ? 'error' : 'warning'}
-                      size='small'
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={booking.status} 
-                      color={booking.status === 'confirmed' ? 'success' : booking.status === 'cancelled' ? 'error' : 'info'}
-                      size='small'
-                    />
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align='center' sx={{ py: 4 }}>
+                    <Typography color='text.secondary'>
+                      No bookings found. Bookings will appear here once users make reservations through the mobile app.
+                    </Typography>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filtered.map((booking) => {
+                  const startDate = booking.start_date?.toDate ?
+                    new Date(booking.start_date.toDate()).toLocaleDateString() :
+                    'N/A';
+                  const endDate = booking.end_date?.toDate ?
+                    new Date(booking.end_date.toDate()).toLocaleDateString() :
+                    'N/A';
+
+                  return (
+                    <TableRow key={booking.booking_id}>
+                      <TableCell>
+                        {booking.booking_id ? booking.booking_id.substring(0, 8) : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        {startDate} - {endDate}
+                      </TableCell>
+                      <TableCell>{booking.guest_count || 0}</TableCell>
+                      <TableCell>₹{booking.total_amount?.toLocaleString() || '0'}</TableCell>
+                      <TableCell>₹{booking.commission_amount?.toLocaleString() || '0'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={booking.payment_status || 'pending'}
+                          color={booking.payment_status === 'paid' ? 'success' : booking.payment_status === 'refunded' ? 'error' : 'warning'}
+                          size='small'
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={booking.status || 'pending'}
+                          color={booking.status === 'confirmed' ? 'success' : booking.status === 'cancelled' ? 'error' : 'info'}
+                          size='small'
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </TableContainer>

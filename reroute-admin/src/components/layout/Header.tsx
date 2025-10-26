@@ -8,16 +8,24 @@ import {
   Box,
   IconButton,
   Menu,
-  MenuItem
+  MenuItem,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
-import { AccountCircle, Logout } from '@mui/icons-material';
+import { AccountCircle, Logout, Menu as MenuIcon } from '@mui/icons-material';
 
 const drawerWidth = 260;
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -39,26 +47,48 @@ const Header: React.FC = () => {
   return (
     <AppBar
       position='fixed'
+      elevation={1}
       sx={{
-        width: `calc(100% - ${drawerWidth}px)`,
-        ml: `${drawerWidth}px`,
-        backgroundColor: 'white',
-        color: '#333',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        width: { xs: '100%', md: `calc(100% - ${drawerWidth}px)` },
+        ml: { xs: 0, md: `${drawerWidth}px` },
+        backgroundColor: 'background.paper',
+        color: 'text.primary'
       }}
     >
-      <Toolbar>
-        <Typography variant='h6' component='div' sx={{ flexGrow: 1, color: '#333' }}>
-          Welcome, Admin
+      <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
+        {isMobile && (
+          <IconButton
+            color='inherit'
+            aria-label='open drawer'
+            edge='start'
+            onClick={onMenuClick}
+            sx={{ mr: 2 }}
+          >
+            <MenuIcon />
+          </IconButton>
+        )}
+
+        <Typography
+          variant='h6'
+          component='div'
+          sx={{
+            flexGrow: 1,
+            fontSize: { xs: '1rem', sm: '1.25rem' },
+            fontWeight: 600
+          }}
+        >
+          {isMobile ? 'ReRoute Admin' : 'Welcome, Admin'}
         </Typography>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant='body2' color='text.secondary'>
-            {currentUser?.email}
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 2 } }}>
+          {!isMobile && (
+            <Typography variant='body2' color='text.secondary' sx={{ display: { xs: 'none', sm: 'block' } }}>
+              {currentUser?.email}
+            </Typography>
+          )}
 
           <IconButton
-            size='large'
+            size={isMobile ? 'medium' : 'large'}
             onClick={handleMenu}
             color='inherit'
           >
@@ -69,7 +99,20 @@ const Header: React.FC = () => {
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={handleClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
           >
+            {isMobile && (
+              <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.875rem' }}>
+                {currentUser?.email}
+              </MenuItem>
+            )}
             <MenuItem onClick={handleLogout}>
               <Logout fontSize='small' sx={{ mr: 1 }} />
               Logout

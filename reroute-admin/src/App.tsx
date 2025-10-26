@@ -18,15 +18,182 @@ import CommunicationCenter from './pages/CommunicationCenter';
 
 const theme = createTheme({
   palette: {
+    mode: 'light',
     primary: {
-      main: '#4CAF50',
+      main: '#10B981', // Modern green
+      light: '#34D399',
+      dark: '#059669',
+      contrastText: '#fff',
     },
     secondary: {
-      main: '#2196F3',
+      main: '#3B82F6', // Modern blue
+      light: '#60A5FA',
+      dark: '#2563EB',
+      contrastText: '#fff',
+    },
+    success: {
+      main: '#10B981',
+      light: '#34D399',
+      dark: '#059669',
+    },
+    error: {
+      main: '#EF4444',
+      light: '#F87171',
+      dark: '#DC2626',
+    },
+    warning: {
+      main: '#F59E0B',
+      light: '#FBBF24',
+      dark: '#D97706',
+    },
+    info: {
+      main: '#3B82F6',
+      light: '#60A5FA',
+      dark: '#2563EB',
+    },
+    background: {
+      default: '#F9FAFB',
+      paper: '#FFFFFF',
+    },
+    text: {
+      primary: '#111827',
+      secondary: '#6B7280',
     },
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", sans-serif',
+    h1: {
+      fontWeight: 700,
+      fontSize: '2.5rem',
+      lineHeight: 1.2,
+      letterSpacing: '-0.02em',
+    },
+    h2: {
+      fontWeight: 700,
+      fontSize: '2rem',
+      lineHeight: 1.3,
+      letterSpacing: '-0.01em',
+    },
+    h3: {
+      fontWeight: 600,
+      fontSize: '1.75rem',
+      lineHeight: 1.3,
+    },
+    h4: {
+      fontWeight: 600,
+      fontSize: '1.5rem',
+      lineHeight: 1.4,
+    },
+    h5: {
+      fontWeight: 600,
+      fontSize: '1.25rem',
+      lineHeight: 1.4,
+    },
+    h6: {
+      fontWeight: 600,
+      fontSize: '1.125rem',
+      lineHeight: 1.5,
+    },
+    body1: {
+      fontSize: '1rem',
+      lineHeight: 1.5,
+    },
+    body2: {
+      fontSize: '0.875rem',
+      lineHeight: 1.5,
+    },
+    button: {
+      fontWeight: 500,
+      textTransform: 'none',
+      letterSpacing: '0.01em',
+    },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+  shadows: [
+    'none',
+    '0px 1px 2px rgba(0, 0, 0, 0.05)',
+    '0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.06)',
+    '0px 4px 6px -1px rgba(0, 0, 0, 0.1), 0px 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    '0px 10px 15px -3px rgba(0, 0, 0, 0.1), 0px 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    '0px 20px 25px -5px rgba(0, 0, 0, 0.1), 0px 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    '0px 25px 50px -12px rgba(0, 0, 0, 0.25)',
+  ],
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          padding: '8px 16px',
+          fontSize: '0.875rem',
+          fontWeight: 500,
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+          },
+        },
+        contained: {
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
+          },
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.06)',
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+        },
+        elevation1: {
+          boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.06)',
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+          fontWeight: 500,
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 8,
+          },
+        },
+      },
+    },
   },
 });
 

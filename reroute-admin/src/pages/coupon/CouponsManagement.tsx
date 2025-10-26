@@ -21,10 +21,11 @@ import {
   Paper,
   Chip,
   IconButton,
-  Grid as Grid,
-  Alert
+  Grid,
+  Alert,
+  CircularProgress
 } from '@mui/material';
-import { Add, Delete, Edit } from '@mui/icons-material';
+import { Add, Delete } from '@mui/icons-material';
 import { collection, getDocs, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Coupon } from '../../types';
@@ -109,6 +110,16 @@ const CouponsManagement: React.FC = () => {
     });
   };
 
+  if (loading) {
+    return (
+      <MainLayout>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
+          <CircularProgress size={60} />
+        </Box>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <Box>
@@ -138,36 +149,55 @@ const CouponsManagement: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {coupons.map((coupon) => (
-                <TableRow key={coupon.coupon_id}>
-                  <TableCell>
-                    <Typography fontWeight='bold'>{coupon.code}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    {coupon.discount_type === 'percentage' 
-                      ? `${coupon.discount_value}%` 
-                      : `₹${coupon.discount_value}`}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(coupon.valid_from?.toDate?.()).toLocaleDateString()} - {new Date(coupon.valid_until?.toDate?.()).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={coupon.is_active ? 'Active' : 'Inactive'} 
-                      color={coupon.is_active ? 'success' : 'default'}
-                      size='small'
-                    />
-                  </TableCell>
-                  <TableCell>{coupon.current_uses}/{coupon.max_uses}</TableCell>
-                  <TableCell>
-                    {coupon.is_active && (
-                      <IconButton size='small' onClick={() => handleDeactivate(coupon.coupon_id)}>
-                        <Delete />
-                      </IconButton>
-                    )}
+              {coupons.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align='center' sx={{ py: 4 }}>
+                    <Typography color='text.secondary'>
+                      No coupons created yet. Click "Create Coupon" to add your first discount coupon.
+                    </Typography>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                coupons.map((coupon) => {
+                  const validFrom = coupon.valid_from?.toDate ?
+                    new Date(coupon.valid_from.toDate()).toLocaleDateString() :
+                    'N/A';
+                  const validUntil = coupon.valid_until?.toDate ?
+                    new Date(coupon.valid_until.toDate()).toLocaleDateString() :
+                    'N/A';
+
+                  return (
+                    <TableRow key={coupon.coupon_id}>
+                      <TableCell>
+                        <Typography fontWeight='bold'>{coupon.code || 'N/A'}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        {coupon.discount_type === 'percentage'
+                          ? `${coupon.discount_value || 0}%`
+                          : `₹${coupon.discount_value || 0}`}
+                      </TableCell>
+                      <TableCell>
+                        {validFrom} - {validUntil}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={coupon.is_active ? 'Active' : 'Inactive'}
+                          color={coupon.is_active ? 'success' : 'default'}
+                          size='small'
+                        />
+                      </TableCell>
+                      <TableCell>{coupon.current_uses || 0}/{coupon.max_uses || 1}</TableCell>
+                      <TableCell>
+                        {coupon.is_active && (
+                          <IconButton size='small' onClick={() => handleDeactivate(coupon.coupon_id)}>
+                            <Delete />
+                          </IconButton>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </TableContainer>
