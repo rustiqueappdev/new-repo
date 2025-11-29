@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(if [ -f \".env\" ])",
+      "Bash(then echo \"✓ .env file exists\")",
+      "Bash(else echo \"✗ .env file missing\")",
+      "Bash(fi)",
+      "Bash(npm start)",
+      "Bash(firebase --version:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npx firebase:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

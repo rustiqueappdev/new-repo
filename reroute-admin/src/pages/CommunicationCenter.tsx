@@ -3,7 +3,7 @@ import {
   Box,
   Typography,
   Paper,
-  Grid as Grid,
+  Grid,
   TextField,
   Button,
   Select,
@@ -22,23 +22,30 @@ import {
   CardContent,
   CardActionArea,
   Alert,
-  InputAdornment,
-  IconButton
+  InputAdornment
 } from '@mui/material';
 import { Send, Search, Group, Store, Person } from '@mui/icons-material';
 import { collection, getDocs, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
+import { useSnackbar } from '../context/SnackbarContext';
 import MainLayout from '../components/layout/MainLayout';
 
 interface Communication {
   id: string;
-  recipient_type: string;
-  subject: string;
+  recipientType: string;
+  title: string;
   message: string;
   sent_at: any;
-  sent_by: string;
-  recipient_count?: number;
+  sentBy: string;
+  recipientCount?: number;
+  notificationSent?: boolean;
+  notificationSentAt?: any;
+  deliveryStatus?: {
+    success: number;
+    failure: number;
+  };
+  notificationError?: string;
 }
 
 const templates = [
@@ -71,6 +78,7 @@ const templates = [
 
 const CommunicationCenter: React.FC = () => {
   const { currentUser } = useAuth();
+  const { showSuccess, showError, showWarning } = useSnackbar();
   const [communications, setCommunications] = useState<Communication[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -102,7 +110,7 @@ const CommunicationCenter: React.FC = () => {
 
   const handleSendMessage = async () => {
     if (!subject.trim() || !message.trim()) {
-      alert('Please fill in subject and message');
+      showWarning('Please fill in subject and message');
       return;
     }
 
@@ -128,21 +136,23 @@ const CommunicationCenter: React.FC = () => {
       }
 
       await addDoc(collection(db, 'communications'), {
-        recipient_type: recipientType,
-        subject,
+        recipientType: recipientType,
+        title: subject,
         message,
         sent_at: serverTimestamp(),
-        sent_by: currentUser?.email || 'admin',
-        recipient_count: recipientCount
+        sentBy: currentUser?.email || 'admin',
+        recipientCount: recipientCount,
+        type: 'admin_message',
+        notificationSent: false
       });
 
       setSubject('');
       setMessage('');
       fetchCommunications();
-      alert(`Message sent successfully to ${recipientCount} recipients!`);
+      showSuccess(`Message sent successfully! Push notifications will be delivered to ${recipientCount} recipients shortly.`);
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Failed to send message');
+      showError('Failed to send message');
     } finally {
       setSending(false);
     }
@@ -153,10 +163,10 @@ const CommunicationCenter: React.FC = () => {
     setMessage(template.message);
   };
 
-  const filteredComms = communications.filter(comm => 
-    comm.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredComms = communications.filter(comm =>
+    comm.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     comm.message?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    comm.recipient_type?.toLowerCase().includes(searchTerm.toLowerCase())
+    comm.recipientType?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getRecipientIcon = (type: string) => {
@@ -199,7 +209,7 @@ const CommunicationCenter: React.FC = () => {
             Communication Center
           </Typography>
           <Typography variant='body2' color='text.secondary'>
-            Send notifications and messages to users and farmhouse owners
+            Send push notifications and messages to users and farmhouse owners. Messages are automatically sent as push notifications to mobile devices.
           </Typography>
         </Box>
 
@@ -208,8 +218,11 @@ const CommunicationCenter: React.FC = () => {
           <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3 }} elevation={2}>
               <Typography variant='h6' fontWeight='bold' gutterBottom>
-                Send Notification
+                Send Push Notification
               </Typography>
+              <Alert severity='info' sx={{ mb: 2 }}>
+                Messages will be delivered as push notifications to users' mobile devices
+              </Alert>
               
               <FormControl fullWidth sx={{ mb: 2 }}>
                 <InputLabel>Recipients</InputLabel>
@@ -359,8 +372,8 @@ const CommunicationCenter: React.FC = () => {
                         <TableCell><strong>Recipients</strong></TableCell>
                         <TableCell><strong>Subject</strong></TableCell>
                         <TableCell><strong>Message</strong></TableCell>
-                        <TableCell><strong>Count</strong></TableCell>
-                        <TableCell><strong>Status</strong></TableCell>
+                        <TableCell><strong>Recipients</strong></TableCell>
+                        <TableCell><strong>Delivery Status</strong></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -390,17 +403,17 @@ const CommunicationCenter: React.FC = () => {
                             </TableCell>
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {getRecipientIcon(comm.recipient_type)}
-                                <Chip 
-                                  label={getRecipientLabel(comm.recipient_type)} 
-                                  size='small' 
+                                {getRecipientIcon(comm.recipientType)}
+                                <Chip
+                                  label={getRecipientLabel(comm.recipientType)}
+                                  size='small'
                                   variant='outlined'
                                 />
                               </Box>
                             </TableCell>
                             <TableCell>
                               <Typography variant='body2' fontWeight='medium'>
-                                {comm.subject}
+                                {comm.title}
                               </Typography>
                             </TableCell>
                             <TableCell sx={{ maxWidth: 300 }}>
@@ -409,14 +422,34 @@ const CommunicationCenter: React.FC = () => {
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Chip 
-                                label={`${comm.recipient_count || 0} users`} 
-                                size='small' 
+                              <Chip
+                                label={`${comm.recipientCount || 0} users`}
+                                size='small'
                                 color='primary'
                               />
                             </TableCell>
                             <TableCell>
-                              <Chip label='Sent' color='success' size='small' />
+                              {comm.notificationSent ? (
+                                <Box>
+                                  <Chip
+                                    label={`✓ ${comm.deliveryStatus?.success || 0} sent`}
+                                    color='success'
+                                    size='small'
+                                  />
+                                  {comm.deliveryStatus && comm.deliveryStatus.failure > 0 && (
+                                    <Chip
+                                      label={`✗ ${comm.deliveryStatus.failure} failed`}
+                                      color='error'
+                                      size='small'
+                                      sx={{ ml: 0.5 }}
+                                    />
+                                  )}
+                                </Box>
+                              ) : comm.notificationError ? (
+                                <Chip label='Failed' color='error' size='small' />
+                              ) : (
+                                <Chip label='Pending' color='warning' size='small' />
+                              )}
                             </TableCell>
                           </TableRow>
                         ))

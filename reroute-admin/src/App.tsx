@@ -2,13 +2,17 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { AuthProvider } from './context/AuthContext';
+import { SnackbarProvider } from './context/SnackbarContext';
+import { PendingCountProvider } from './context/PendingCountContext';
 import PrivateRoute from './components/common/PrivateRoute';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import Login from './pages/auth/Login';
 import Dashboard from './pages/dashboard/Dashboard';
 import FarmhouseApprovals from './pages/farmhouse/FarmhouseApprovals';
 import AllFarmhouses from './pages/farmhouse/AllFarmhouses';
 import CouponsManagement from './pages/coupon/CouponsManagement';
 import UsersManagement from './pages/user/UsersManagement';
+import KYCManagement from './pages/kyc/KYCManagement';
 import BookingsManagement from './pages/booking/BookingsManagement';
 import PaymentsCommission from './pages/payment/PaymentsCommission';
 import RevenueDashboard from './pages/dashboard/RevenueDashboard';
@@ -199,11 +203,14 @@ const theme = createTheme({
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
-        <AuthProvider>
-          <Routes>
+    <ErrorBoundary>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <AuthProvider>
+            <PendingCountProvider>
+              <SnackbarProvider>
+                <Routes>
             <Route path='/login' element={<Login />} />
             
             <Route path='/dashboard' element={<PrivateRoute><Dashboard /></PrivateRoute>} />
@@ -211,6 +218,7 @@ function App() {
             <Route path='/farmhouses' element={<PrivateRoute><AllFarmhouses /></PrivateRoute>} />
             <Route path='/coupons' element={<PrivateRoute><CouponsManagement /></PrivateRoute>} />
             <Route path='/users' element={<PrivateRoute><UsersManagement /></PrivateRoute>} />
+            <Route path='/kyc' element={<PrivateRoute><KYCManagement /></PrivateRoute>} />
             <Route path='/bookings' element={<PrivateRoute><BookingsManagement /></PrivateRoute>} />
             <Route path='/payments' element={<PrivateRoute><PaymentsCommission /></PrivateRoute>} />
             <Route path='/revenue' element={<PrivateRoute><RevenueDashboard /></PrivateRoute>} />
@@ -220,10 +228,13 @@ function App() {
             
             <Route path='/' element={<Navigate to='/dashboard' replace />} />
             <Route path='*' element={<Navigate to='/dashboard' replace />} />
-          </Routes>
-        </AuthProvider>
-      </Router>
-    </ThemeProvider>
+                </Routes>
+              </SnackbarProvider>
+            </PendingCountProvider>
+          </AuthProvider>
+        </Router>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

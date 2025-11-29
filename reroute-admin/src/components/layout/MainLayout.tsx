@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, useMediaQuery, useTheme } from '@mui/material';
+import { Box } from '@mui/material';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
@@ -7,13 +7,10 @@ const drawerWidth = 260;
 
 interface MainLayoutProps {
   children: React.ReactNode;
-  pendingCount?: number;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children, pendingCount }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -22,7 +19,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pendingCount }) => {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar
-        pendingCount={pendingCount}
         mobileOpen={mobileOpen}
         onDrawerToggle={handleDrawerToggle}
       />

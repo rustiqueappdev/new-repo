@@ -3,12 +3,10 @@ import {
   Box,
   Typography,
   Paper,
-  Grid as Grid,
-  Card,
-  CardContent,
+  Grid,
   CircularProgress
 } from '@mui/material';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import MainLayout from '../../components/layout/MainLayout';
@@ -17,7 +15,6 @@ const AnalyticsDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [bookingStatusData, setBookingStatusData] = useState<any[]>([]);
   const [popularFarmhouses, setPopularFarmhouses] = useState<any[]>([]);
-  const [userGrowthData, setUserGrowthData] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -26,8 +23,6 @@ const AnalyticsDashboard: React.FC = () => {
   const fetchAnalytics = async () => {
     try {
       const bookingsSnap = await getDocs(collection(db, 'bookings'));
-      const farmhousesSnap = await getDocs(collection(db, 'farmhouses'));
-      const usersSnap = await getDocs(collection(db, 'users'));
 
       const bookings = bookingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       

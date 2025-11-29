@@ -5,7 +5,7 @@ import {
   Card,
   CardContent,
   CardMedia,
-  Grid as Grid,
+  Grid,
   Chip,
   Button,
   CircularProgress,
@@ -88,7 +88,7 @@ const FarmhouseApprovals: React.FC = () => {
   }
 
   return (
-    <MainLayout pendingCount={farmhouses.length}>
+    <MainLayout>
       <Box>
         <Typography variant='h4' fontWeight='bold' gutterBottom>
           Farmhouse Approvals

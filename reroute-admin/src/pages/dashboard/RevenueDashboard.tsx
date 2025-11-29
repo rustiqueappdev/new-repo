@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
   Paper,
-  Grid as Grid,
+  Grid,
   Card,
   CardContent,
   Select,
@@ -13,10 +13,22 @@ import {
   CircularProgress
 } from '@mui/material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { Booking } from '../../types';
 import MainLayout from '../../components/layout/MainLayout';
+
+// Firebase booking structure matching the actual database
+interface FirebaseBooking {
+  booking_id: string;
+  totalPrice?: number;
+  discountApplied?: number;
+  paymentStatus?: string;
+  createdAt?: any;
+  created_at?: any;
+  farmhouseId?: string;
+  farmhouse_id?: string;
+  commission_percentage?: number;
+}
 
 const RevenueDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -29,46 +41,96 @@ const RevenueDashboard: React.FC = () => {
     growthRate: 0
   });
 
-  useEffect(() => {
-    fetchRevenueData();
-  }, [period]);
-
-  const fetchRevenueData = async () => {
+  const fetchRevenueData = useCallback(async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'bookings'));
-      const bookings = snapshot.docs.map(doc => ({
+      // Fetch bookings
+      const bookingsSnapshot = await getDocs(collection(db, 'bookings'));
+      const bookingsData = bookingsSnapshot.docs.map(doc => ({
         booking_id: doc.id,
         ...doc.data()
-      })) as Booking[];
+      })) as FirebaseBooking[];
 
-      processRevenueData(bookings);
+      // Fetch farmhouses to get commission percentages
+      const farmhousesSnapshot = await getDocs(collection(db, 'farmhouses'));
+      const commissionMap: Record<string, number> = {};
+
+      farmhousesSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        commissionMap[doc.id] = data.commission_percentage || 10;
+      });
+
+      // Attach commission percentage to each booking
+      const enrichedBookings = bookingsData.map(booking => {
+        const farmhouseId = booking.farmhouseId || booking.farmhouse_id;
+        return {
+          ...booking,
+          commission_percentage: farmhouseId ? commissionMap[farmhouseId] || 10 : 10
+        };
+      });
+
+      processRevenueData(enrichedBookings);
     } catch (error) {
       console.error('Error fetching revenue data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const processRevenueData = (bookings: Booking[]) => {
-    const totalRevenue = bookings.reduce((sum, b) => sum + b.total_amount, 0);
-    const totalCommission = bookings.reduce((sum, b) => sum + b.commission_amount, 0);
-    const averageBookingValue = totalRevenue / bookings.length || 0;
+  useEffect(() => {
+    fetchRevenueData();
+  }, [period, fetchRevenueData]);
+
+  const processRevenueData = (bookings: FirebaseBooking[]) => {
+    // Only count paid bookings for revenue
+    const paidBookings = bookings.filter(b => b.paymentStatus === 'paid');
+
+    const totalRevenue = paidBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+
+    // Calculate commission using actual commission percentages
+    const totalCommission = paidBookings.reduce((sum, b) => {
+      const commission = (b.commission_percentage || 10) / 100;
+      return sum + ((b.totalPrice || 0) * commission);
+    }, 0);
+
+    const averageBookingValue = totalRevenue / paidBookings.length || 0;
 
     setStats({
       totalRevenue,
       totalCommission,
       averageBookingValue,
-      growthRate: 12.5
+      growthRate: 12.5 // TODO: Calculate actual growth rate
     });
 
     // Group by date
-    const grouped = bookings.reduce((acc: any, booking) => {
-      const date = new Date(booking.created_at?.toDate?.()).toLocaleDateString();
+    const grouped = paidBookings.reduce((acc: any, booking) => {
+      let dateObj;
+      try {
+        const timestamp = booking.createdAt || booking.created_at;
+        if (timestamp?.toDate && typeof timestamp.toDate === 'function') {
+          dateObj = timestamp.toDate();
+        } else if (timestamp) {
+          dateObj = new Date(timestamp);
+        } else {
+          dateObj = new Date();
+        }
+      } catch {
+        dateObj = new Date();
+      }
+
+      const date = dateObj.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+
       if (!acc[date]) {
         acc[date] = { date, revenue: 0, commission: 0 };
       }
-      acc[date].revenue += booking.total_amount;
-      acc[date].commission += booking.commission_amount;
+
+      const commission = (booking.commission_percentage || 10) / 100;
+      acc[date].revenue += booking.totalPrice || 0;
+      acc[date].commission += (booking.totalPrice || 0) * commission;
+
       return acc;
     }, {});
 

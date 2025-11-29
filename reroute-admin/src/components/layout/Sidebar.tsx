@@ -26,18 +26,20 @@ import {
   TrendingUp,
   BarChart,
   Star,
-  Email
+  Email,
+  VerifiedUser
 } from '@mui/icons-material';
+import { usePendingCount } from '../../context/PendingCountContext';
 
 const drawerWidth = 260;
 
 interface SidebarProps {
-  pendingCount?: number;
   mobileOpen: boolean;
   onDrawerToggle: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, mobileOpen, onDrawerToggle }) => {
+const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onDrawerToggle }) => {
+  const { pendingFarmhouses, pendingKYC } = usePendingCount();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -45,10 +47,11 @@ const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, mobileOpen, onDrawe
 
   const menuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-    { text: 'Farmhouse Approvals', icon: <CheckCircle />, path: '/farmhouse-approvals', badge: pendingCount },
+    { text: 'Farmhouse Approvals', icon: <CheckCircle />, path: '/farmhouse-approvals', badge: pendingFarmhouses },
     { text: 'All Farmhouses', icon: <HomeWork />, path: '/farmhouses' },
     { text: 'Bookings', icon: <BookOnline />, path: '/bookings' },
     { text: 'Users', icon: <People />, path: '/users' },
+    { text: 'Owner KYC', icon: <VerifiedUser />, path: '/kyc', badge: pendingKYC },
     { text: 'Coupons', icon: <LocalOffer />, path: '/coupons' },
     { text: 'Payments', icon: <Payment />, path: '/payments' },
     { text: 'Revenue', icon: <TrendingUp />, path: '/revenue' },

@@ -5,7 +5,7 @@ import {
   DialogContent,
   Box,
   Typography,
-  Grid as Grid,
+  Grid,
   Chip,
   Button,
   ImageList,
@@ -21,22 +21,21 @@ import {
   IconButton,
   Paper
 } from '@mui/material';
-import { 
-  doc, 
-  getDoc, 
-  updateDoc, 
+import {
+  doc,
+  getDoc,
+  updateDoc,
   serverTimestamp,
   collection,
-  query,
-  where,
-  getDocs,
   addDoc
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
-import { 
-  Farmhouse, 
-  User,
+import { useSnackbar } from '../../context/SnackbarContext';
+import { useAuditLog } from '../../hooks/useAuditLog';
+import { AuditActions } from '../../utils/auditLog';
+import {
+  Farmhouse,
   getFarmhouseName,
   getFarmhouseLocation,
   getFarmhouseDescription,
@@ -48,12 +47,14 @@ import {
   getFarmhouseRules,
   getFarmhouseOwnerId
 } from '../../types';
-import { 
-  Close, 
-  CheckCircle, 
+import {
+  Close,
+  CheckCircle,
   Cancel,
   LocationOn,
-  Warning
+  Warning,
+  Map,
+  AttachMoney
 } from '@mui/icons-material';
 import ApprovalDialog from './ApprovalDialog';
 
@@ -64,22 +65,28 @@ interface FarmhouseDetailModalProps {
   onApprovalComplete: () => void;
 }
 
-interface OwnerStats {
-  totalProperties: number;
-  approvedProperties: number;
-  rejectedProperties: number;
-  totalBookings: number;
-  averageRating: number;
-}
-
 interface VerificationChecklist {
-  aadhaarVerified: boolean;
-  panVerified: boolean;
-  licenceVerified: boolean;
+  documentsVerified: boolean;
   photosQuality: boolean;
   pricingReasonable: boolean;
   locationVerified: boolean;
 }
+
+// Helper function to get Google Maps URL
+const getGoogleMapsUrl = (farmhouse: Farmhouse): string | null => {
+  // Check for direct map link from mobile app
+  if (farmhouse.basicDetails?.mapLink) {
+    return farmhouse.basicDetails.mapLink;
+  }
+
+  // Fallback to address search using location text
+  const location = getFarmhouseLocation(farmhouse);
+  if (location) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+  }
+
+  return null;
+};
 
 const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
   open,
@@ -88,113 +95,47 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
   onApprovalComplete
 }) => {
   const { currentUser } = useAuth();
-  const [ownerData, setOwnerData] = useState<User | null>(null);
-  const [ownerStats, setOwnerStats] = useState<OwnerStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { showSuccess, showError, showWarning } = useSnackbar();
+  const { log: auditLog } = useAuditLog();
+  const [loading, setLoading] = useState(false);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [approvalType, setApprovalType] = useState<'approve' | 'reject'>('approve');
   const [activeTab, setActiveTab] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [adminNotes, setAdminNotes] = useState('');
+  const [commission, setCommission] = useState<number>(10);
   const [checklist, setChecklist] = useState<VerificationChecklist>({
-    aadhaarVerified: false,
-    panVerified: false,
-    licenceVerified: false,
+    documentsVerified: false,
     photosQuality: false,
     pricingReasonable: false,
     locationVerified: false
   });
 
+  // Reset state when modal opens
   useEffect(() => {
-    if (open && farmhouse) {
-      fetchAllData();
-    }
-  }, [open, farmhouse]);
-
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
-      await Promise.all([
-        fetchOwnerData(),
-        fetchOwnerStats()
-      ]);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchOwnerData = async () => {
-    const ownerId = getFarmhouseOwnerId(farmhouse);
-    if (!ownerId) return;
-    
-    try {
-      const ownerDoc = await getDoc(doc(db, 'users', ownerId));
-      if (ownerDoc.exists()) {
-        setOwnerData({ user_id: ownerDoc.id, ...ownerDoc.data() } as User);
-      }
-    } catch (error) {
-      console.error('Error fetching owner data:', error);
-    }
-  };
-
-  const fetchOwnerStats = async () => {
-    const ownerId = getFarmhouseOwnerId(farmhouse);
-    if (!ownerId) return;
-    
-    try {
-      const propertiesQuery = query(
-        collection(db, 'farmhouses'),
-        where('ownerId', '==', ownerId)
-      );
-      const propertiesSnap = await getDocs(propertiesQuery);
-      
-      const approved = propertiesSnap.docs.filter(doc => doc.data().status === 'approved').length;
-      const rejected = propertiesSnap.docs.filter(doc => doc.data().status === 'rejected').length;
-
-      const bookingsQuery = query(
-        collection(db, 'bookings'),
-        where('farmhouse_id', '==', farmhouse.farmhouse_id)
-      );
-      const bookingsSnap = await getDocs(bookingsQuery);
-
-      setOwnerStats({
-        totalProperties: propertiesSnap.size,
-        approvedProperties: approved,
-        rejectedProperties: rejected,
-        totalBookings: bookingsSnap.size,
-        averageRating: 0
+    if (open) {
+      setActiveTab(0);
+      setCommission(10);
+      setChecklist({
+        documentsVerified: false,
+        photosQuality: false,
+        pricingReasonable: false,
+        locationVerified: false
       });
-    } catch (error) {
-      console.error('Error fetching owner stats:', error);
     }
-  };
+  }, [open]);
 
   const handleChecklistChange = (key: keyof VerificationChecklist) => {
     setChecklist(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const saveAdminNotes = async () => {
-    try {
-      await addDoc(collection(db, 'admin_notes'), {
-        farmhouse_id: farmhouse.farmhouse_id,
-        note: adminNotes,
-        created_by: currentUser?.uid,
-        created_at: serverTimestamp()
-      });
-      setAdminNotes('');
-      alert('Note saved successfully');
-    } catch (error) {
-      console.error('Error saving note:', error);
-      alert('Failed to save note: ' + (error as Error).message);
-    }
-  };
-
   const handleApprove = () => {
     const allChecked = Object.values(checklist).every(v => v);
     if (!allChecked) {
-      alert('Please complete all verification checklist items before approving');
+      showWarning('Please complete all verification checklist items before approving');
+      return;
+    }
+    if (commission < 0 || commission > 100) {
+      showWarning('Please set a valid commission percentage (0-100)');
       return;
     }
     setApprovalType('approve');
@@ -206,21 +147,23 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
     setApprovalDialogOpen(true);
   };
 
-  const handleConfirmApproval = async (commission?: number, reason?: string) => {
+  const handleConfirmApproval = async (commissionOverride?: number, reason?: string) => {
     try {
       if (!farmhouse.farmhouse_id) {
         throw new Error('Invalid farmhouse ID');
       }
 
+      setLoading(true);
       const farmhouseRef = doc(db, 'farmhouses', farmhouse.farmhouse_id);
+      const finalCommission = commissionOverride ?? commission;
 
-      if (approvalType === 'approve' && commission !== undefined) {
+      if (approvalType === 'approve') {
         const ownerId = getFarmhouseOwnerId(farmhouse);
         
         // Update farmhouse - use "approved" status for mobile app
         await updateDoc(farmhouseRef, {
           status: 'approved',  // ✅ Mobile app uses "approved"
-          commission_percentage: commission,
+          commission_percentage: finalCommission,
           approved_by: currentUser?.uid || 'admin',
           approved_at: serverTimestamp()
         });
@@ -248,7 +191,7 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
           await addDoc(collection(db, 'approval_history'), {
             farmhouse_id: farmhouse.farmhouse_id,
             action: 'approved',
-            commission_percentage: commission,
+            commission_percentage: finalCommission,
             approved_by: currentUser?.uid || 'admin',
             timestamp: serverTimestamp()
           });
@@ -257,7 +200,19 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
           // Don't fail the entire approval if history fails
         }
 
-        alert('✅ Farmhouse approved successfully!');
+        // Log audit trail
+        await auditLog(
+          AuditActions.APPROVE_FARMHOUSE,
+          'farmhouse',
+          farmhouse.farmhouse_id,
+          {
+            farmhouse_name: getFarmhouseName(farmhouse),
+            commission_percentage: finalCommission,
+            owner_id: ownerId
+          }
+        );
+
+        showSuccess('Farmhouse approved successfully!');
 
       } else if (approvalType === 'reject' && reason) {
         // Update farmhouse to rejected
@@ -281,19 +236,33 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
           console.warn('⚠️ Could not add rejection history:', historyError);
         }
 
-        alert('❌ Farmhouse rejected');
+        // Log audit trail
+        await auditLog(
+          AuditActions.REJECT_FARMHOUSE,
+          'farmhouse',
+          farmhouse.farmhouse_id,
+          {
+            farmhouse_name: getFarmhouseName(farmhouse),
+            rejection_reason: reason,
+            owner_id: getFarmhouseOwnerId(farmhouse)
+          }
+        );
+
+        showSuccess('Farmhouse rejected');
       }
 
       // Close dialog and refresh
       setApprovalDialogOpen(false);
       onApprovalComplete();
-      
+
     } catch (error) {
       console.error('❌ Error during approval process:', error);
-      
+
       // Show detailed error to user
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      alert('Failed to process approval: ' + errorMessage + '\n\nCheck console for details.');
+      showError('Failed to process approval: ' + errorMessage + '. Check console for details.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -325,8 +294,7 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
               <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 3 }}>
                 <Tab label='Property Details' />
                 <Tab label='Owner KYC' />
-                <Tab label='Owner Stats' />
-                <Tab label='Verification' />
+                <Tab label='Verification & Approval' />
               </Tabs>
 
               {activeTab === 0 && (
@@ -334,14 +302,38 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                   <Typography variant='h6' fontWeight='bold' gutterBottom>
                     {getFarmhouseName(farmhouse)}
                   </Typography>
-                  
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <LocationOn color='action' />
-                    <Typography variant='body1' color='text.secondary'>
-                      {getFarmhouseLocation(farmhouse)}
-                    </Typography>
-                  </Box>
 
+                  {/* Location with Google Maps Link */}
+                  <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LocationOn color='primary' />
+                        <Typography variant='body1'>
+                          {getFarmhouseLocation(farmhouse)}
+                        </Typography>
+                      </Box>
+                      {getGoogleMapsUrl(farmhouse) && (
+                        <Button
+                          variant='contained'
+                          color='primary'
+                          startIcon={<Map />}
+                          href={getGoogleMapsUrl(farmhouse) || ''}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          size='small'
+                        >
+                          View on Google Maps
+                        </Button>
+                      )}
+                    </Box>
+                    {farmhouse.basicDetails?.mapLink && (
+                      <Typography variant='caption' color='text.secondary' sx={{ mt: 1, display: 'block' }}>
+                        Map link provided by owner
+                      </Typography>
+                    )}
+                  </Paper>
+
+                  {/* Description */}
                   <Typography variant='body1' sx={{ mb: 3 }}>
                     {getFarmhouseDescription(farmhouse)}
                   </Typography>
@@ -564,47 +556,35 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                 </Box>
               )}
 
-              {activeTab === 2 && ownerStats && (
-                <Box>
-                  <Typography variant='h6' fontWeight='bold' gutterBottom>
-                    Owner Statistics
-                  </Typography>
-                  
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 6, md: 3 }}>
-                      <Paper sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant='h4' color='primary'>{ownerStats.totalProperties}</Typography>
-                        <Typography variant='body2'>Total Properties</Typography>
-                      </Paper>
-                    </Grid>
-                    <Grid size={{ xs: 6, md: 3 }}>
-                      <Paper sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant='h4' color='success.main'>{ownerStats.approvedProperties}</Typography>
-                        <Typography variant='body2'>Approved</Typography>
-                      </Paper>
-                    </Grid>
-                    <Grid size={{ xs: 6, md: 3 }}>
-                      <Paper sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant='h4' color='error.main'>{ownerStats.rejectedProperties}</Typography>
-                        <Typography variant='body2'>Rejected</Typography>
-                      </Paper>
-                    </Grid>
-                    <Grid size={{ xs: 6, md: 3 }}>
-                      <Paper sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant='h4'>{ownerStats.totalBookings}</Typography>
-                        <Typography variant='body2'>Total Bookings</Typography>
-                      </Paper>
-                    </Grid>
-                  </Grid>
-                </Box>
-              )}
-
-              {activeTab === 3 && (
+              {activeTab === 2 && (
                 <Box>
                   <Alert severity='info' sx={{ mb: 3 }}>
-                    Complete all verification steps before approving the farmhouse
+                    Complete verification checklist and set commission before approving
                   </Alert>
 
+                  {/* Commission Setting */}
+                  <Paper sx={{ p: 3, mb: 3, bgcolor: 'success.50', border: '2px solid', borderColor: 'success.main' }}>
+                    <Typography variant='h6' fontWeight='bold' gutterBottom color='success.dark'>
+                      <AttachMoney sx={{ verticalAlign: 'middle', mr: 1 }} />
+                      Set Commission Percentage
+                    </Typography>
+                    <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+                      This commission will be applied to all bookings for this farmhouse
+                    </Typography>
+                    <TextField
+                      type='number'
+                      label='Commission (%)'
+                      value={commission}
+                      onChange={(e) => setCommission(Number(e.target.value))}
+                      InputProps={{
+                        inputProps: { min: 0, max: 100, step: 0.5 }
+                      }}
+                      sx={{ width: 200 }}
+                      helperText='Enter 0-100%'
+                    />
+                  </Paper>
+
+                  {/* Verification Checklist */}
                   <Paper sx={{ p: 3, mb: 3 }}>
                     <Typography variant='h6' fontWeight='bold' gutterBottom>
                       Verification Checklist
@@ -613,29 +593,11 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                       <FormControlLabel
                         control={
                           <Checkbox
-                            checked={checklist.aadhaarVerified}
-                            onChange={() => handleChecklistChange('aadhaarVerified')}
+                            checked={checklist.documentsVerified}
+                            onChange={() => handleChecklistChange('documentsVerified')}
                           />
                         }
-                        label='Aadhaar documents verified and valid'
-                      />
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={checklist.panVerified}
-                            onChange={() => handleChecklistChange('panVerified')}
-                          />
-                        }
-                        label='PAN card verified and matches company details'
-                      />
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={checklist.licenceVerified}
-                            onChange={() => handleChecklistChange('licenceVerified')}
-                          />
-                        }
-                        label='Labour licence verified and active'
+                        label='All KYC documents verified (Aadhaar, PAN, Licence)'
                       />
                       <FormControlLabel
                         control={
@@ -672,28 +634,6 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                         Please complete all checklist items to enable approval
                       </Alert>
                     )}
-                  </Paper>
-
-                  <Paper sx={{ p: 3 }}>
-                    <Typography variant='h6' fontWeight='bold' gutterBottom>
-                      Internal Admin Notes
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={4}
-                      placeholder='Add any internal notes...'
-                      value={adminNotes}
-                      onChange={(e) => setAdminNotes(e.target.value)}
-                      sx={{ mb: 2 }}
-                    />
-                    <Button 
-                      variant='outlined' 
-                      onClick={saveAdminNotes}
-                      disabled={!adminNotes.trim()}
-                    >
-                      Save Note
-                    </Button>
                   </Paper>
                 </Box>
               )}

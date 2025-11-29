@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import { useSnackbar } from '../../context/SnackbarContext';
 import MainLayout from '../../components/layout/MainLayout';
 
 // Firebase booking structure
@@ -45,6 +46,8 @@ interface FirebaseBooking {
   checkInDate?: string;
   checkOutDate?: string;
   farmhouseName?: string;
+  farmhouseId?: string;
+  farmhouse_id?: string;
   userName?: string;
   userEmail?: string;
   userPhone?: string;
@@ -55,9 +58,11 @@ interface FirebaseBooking {
   paymentStatus?: string;
   status?: string;
   commission_paid_to_owner?: boolean;
+  commission_percentage?: number;
 }
 
 const PaymentsCommission: React.FC = () => {
+  const { showSuccess, showError } = useSnackbar();
   const [bookings, setBookings] = useState<FirebaseBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
@@ -72,14 +77,34 @@ const PaymentsCommission: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'bookings'));
-      const data = snapshot.docs.map(doc => ({
+      // Fetch bookings
+      const bookingsSnapshot = await getDocs(collection(db, 'bookings'));
+      const bookingsData = bookingsSnapshot.docs.map(doc => ({
         booking_id: doc.id,
         ...doc.data()
       })) as FirebaseBooking[];
-      
-      setBookings(data);
-      calculateStats(data);
+
+      // Fetch farmhouses to get commission percentages
+      const farmhousesSnapshot = await getDocs(collection(db, 'farmhouses'));
+      const commissionMap: Record<string, number> = {};
+
+      farmhousesSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        // Default to 10% if not set
+        commissionMap[doc.id] = data.commission_percentage || 10;
+      });
+
+      // Attach commission percentage to each booking
+      const enrichedBookings = bookingsData.map(booking => {
+        const farmhouseId = booking.farmhouseId || booking.farmhouse_id;
+        return {
+          ...booking,
+          commission_percentage: farmhouseId ? commissionMap[farmhouseId] || 10 : 10
+        };
+      });
+
+      setBookings(enrichedBookings);
+      calculateStats(enrichedBookings);
     } catch (error) {
       console.error('Error fetching payments:', error);
     } finally {
@@ -94,17 +119,30 @@ const PaymentsCommission: React.FC = () => {
   const calculateStats = (data: FirebaseBooking[]) => {
     const paidBookings = data.filter(b => b.paymentStatus === 'paid');
     const totalRevenue = paidBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
-    
-    // Assuming 10% commission (you can adjust this)
-    const totalCommission = totalRevenue * 0.1;
-    
+
+    // Calculate total commission using actual farmhouse commission percentages
+    const totalCommission = paidBookings.reduce((sum, b) => {
+      const commission = (b.commission_percentage || 10) / 100;
+      return sum + ((b.totalPrice || 0) * commission);
+    }, 0);
+
+    // Calculate pending payouts (amount owed to owners)
     const pendingPayouts = paidBookings
       .filter(b => !b.commission_paid_to_owner)
-      .reduce((sum, b) => sum + ((b.totalPrice || 0) * 0.9), 0);
-    
+      .reduce((sum, b) => {
+        const commission = (b.commission_percentage || 10) / 100;
+        const ownerPayout = (b.totalPrice || 0) * (1 - commission);
+        return sum + ownerPayout;
+      }, 0);
+
+    // Calculate completed payouts (amount already paid to owners)
     const completedPayouts = paidBookings
       .filter(b => b.commission_paid_to_owner)
-      .reduce((sum, b) => sum + ((b.totalPrice || 0) * 0.9), 0);
+      .reduce((sum, b) => {
+        const commission = (b.commission_percentage || 10) / 100;
+        const ownerPayout = (b.totalPrice || 0) * (1 - commission);
+        return sum + ownerPayout;
+      }, 0);
 
     setStats({ totalRevenue, totalCommission, pendingPayouts, completedPayouts });
   };
@@ -118,10 +156,10 @@ const PaymentsCommission: React.FC = () => {
         commission_paid_to_owner: true
       });
       fetchData();
-      alert('Payout marked as paid successfully!');
+      showSuccess('Payout marked as paid successfully!');
     } catch (error) {
       console.error('Error updating payout:', error);
-      alert('Failed to update payout status');
+      showError('Failed to update payout status');
     }
   };
 
