@@ -34,6 +34,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { useAuditLog } from '../../hooks/useAuditLog';
 import { AuditActions } from '../../utils/auditLog';
+import { tryDecrypt } from '../../utils/decryption';
 import {
   Farmhouse,
   getFarmhouseName,
@@ -544,8 +545,8 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                             Bank Details
                           </Typography>
                           <Typography variant='body2'>Account Holder: {farmhouse.kyc.bankDetails.accountHolderName}</Typography>
-                          <Typography variant='body2'>Account Number: {farmhouse.kyc.bankDetails.accountNumber}</Typography>
-                          <Typography variant='body2'>IFSC Code: {farmhouse.kyc.bankDetails.ifscCode}</Typography>
+                          <Typography variant='body2'>Account Number: {tryDecrypt(farmhouse.kyc.bankDetails.accountNumber, getFarmhouseOwnerId(farmhouse) || '')}</Typography>
+                          <Typography variant='body2'>IFSC Code: {tryDecrypt(farmhouse.kyc.bankDetails.ifscCode, getFarmhouseOwnerId(farmhouse) || '')}</Typography>
                           <Typography variant='body2'>Branch: {farmhouse.kyc.bankDetails.branchName}</Typography>
                         </Paper>
                       </Grid>

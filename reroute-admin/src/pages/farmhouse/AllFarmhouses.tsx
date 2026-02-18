@@ -420,10 +420,7 @@ const AllFarmhouses: React.FC = () => {
     return (
       <MainLayout>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <CircularProgress size={60} />
-            <Typography sx={{ mt: 2 }}>Loading farmhouses...</Typography>
-          </Box>
+          <CircularProgress size={48} sx={{ color: '#10B981' }} />
         </Box>
       </MainLayout>
     );
@@ -433,45 +430,62 @@ const AllFarmhouses: React.FC = () => {
     <MainLayout>
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant='h4' fontWeight='bold' gutterBottom>
-              All Farmhouses
-            </Typography>
-            <Typography variant='body2' color='text.secondary'>
-              Total: {farmhouses.length} | Showing: {filtered.length}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Chip
+              label={`${farmhouses.length} total`}
+              size='small'
+              sx={{ backgroundColor: '#F3F4F6', color: '#6B7280', fontWeight: 600, fontSize: '0.75rem' }}
+            />
+            {filtered.length !== farmhouses.length && (
+              <Chip
+                label={`${filtered.length} shown`}
+                size='small'
+                sx={{ backgroundColor: '#EFF6FF', color: '#3B82F6', fontWeight: 600, fontSize: '0.75rem' }}
+              />
+            )}
           </Box>
           <Button
             variant='contained'
             startIcon={<Add />}
             onClick={handleOpenCreateDialog}
-            size='large'
+            sx={{
+              textTransform: 'none', fontWeight: 600, borderRadius: 2, px: 3,
+              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+              boxShadow: 'none',
+              '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' },
+            }}
           >
             Add Farmhouse
           </Button>
         </Box>
 
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden', mb: 3 }}>
+          <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <TextField
-              fullWidth
-              placeholder='Search by name or location...'
+              placeholder='Search farmhouses...'
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              size='small'
+              sx={{
+                flex: 1, minWidth: 200,
+                '& .MuiOutlinedInput-root': { borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } },
+              }}
             />
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <MenuItem value='all'>All ({farmhouses.length})</MenuItem>
+            <FormControl size='small' sx={{ minWidth: 160 }}>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                displayEmpty
+                sx={{ borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } }}
+              >
+                <MenuItem value='all'>All Status</MenuItem>
                 <MenuItem value='approved'>Approved ({farmhouses.filter(f => f.status === 'approved').length})</MenuItem>
                 <MenuItem value='pending'>Pending ({farmhouses.filter(f => f.status === 'pending').length})</MenuItem>
                 <MenuItem value='rejected'>Rejected ({farmhouses.filter(f => f.status === 'rejected').length})</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-        </Grid>
+          </Box>
+        </Paper>
 
         {filtered.length === 0 ? (
           <EmptyState
@@ -482,88 +496,76 @@ const AllFarmhouses: React.FC = () => {
             onAction={farmhouses.length === 0 ? handleOpenCreateDialog : undefined}
           />
         ) : (
-          <TableContainer component={Paper} elevation={2}>
+          <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                  <TableCell><strong>Name</strong></TableCell>
-                  <TableCell><strong>Location</strong></TableCell>
-                  <TableCell><strong>Base Rate</strong></TableCell>
-                  <TableCell><strong>Commission %</strong></TableCell>
-                  <TableCell><strong>Status</strong></TableCell>
-                  <TableCell><strong>Max Guests</strong></TableCell>
-                  <TableCell align='center'><strong>Actions</strong></TableCell>
+                <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
+                  <TableCell>Property</TableCell>
+                  <TableCell>Rate</TableCell>
+                  <TableCell>Commission</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Capacity</TableCell>
+                  <TableCell align='center'>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filtered.map((farmhouse) => (
-                  <TableRow key={farmhouse.farmhouse_id} hover>
+                  <TableRow key={farmhouse.farmhouse_id} hover sx={{ '&:hover': { backgroundColor: '#FAFAFA' }, '& td': { borderBottom: '1px solid #F3F4F6', py: 1.5 } }}>
                     <TableCell>
-                      <Typography fontWeight='bold'>{getName(farmhouse)}</Typography>
+                      <Box>
+                        <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#111827' }}>{getName(farmhouse)}</Typography>
+                        <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>{getLocation(farmhouse)}</Typography>
+                      </Box>
                     </TableCell>
-                    <TableCell>{getLocation(farmhouse)}</TableCell>
-                    <TableCell>₹{getBaseRate(farmhouse).toLocaleString()}</TableCell>
-                    <TableCell>{getCommission(farmhouse)}%</TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827' }}>₹{getBaseRate(farmhouse).toLocaleString()}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 500, color: '#6B7280' }}>{getCommission(farmhouse)}%</Typography>
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={farmhouse.status || 'pending'}
-                        color={
-                          farmhouse.status === 'approved' ? 'success' :
-                          farmhouse.status === 'rejected' ? 'error' :
-                          'warning'
-                        }
                         size='small'
+                        sx={{
+                          backgroundColor: farmhouse.status === 'approved' ? '#ECFDF5' : farmhouse.status === 'rejected' ? '#FEF2F2' : '#FFFBEB',
+                          color: farmhouse.status === 'approved' ? '#059669' : farmhouse.status === 'rejected' ? '#DC2626' : '#D97706',
+                          fontWeight: 600, fontSize: '0.7rem', textTransform: 'capitalize',
+                        }}
                       />
                     </TableCell>
-                    <TableCell>{getMaxGuests(farmhouse)}</TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                        <Tooltip title='View Details'>
-                          <IconButton
-                            size='small'
-                            onClick={() => handleViewDetails(farmhouse)}
-                          >
-                            <Visibility fontSize='small' />
+                      <Typography sx={{ fontSize: '0.85rem', color: '#6B7280' }}>{getMaxGuests(farmhouse)} guests</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+                        <Tooltip title='View'>
+                          <IconButton size='small' onClick={() => handleViewDetails(farmhouse)} sx={{ color: '#9CA3AF', '&:hover': { color: '#6B7280', backgroundColor: '#F3F4F6' } }}>
+                            <Visibility sx={{ fontSize: 18 }} />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title='Edit'>
-                          <IconButton
-                            size='small'
-                            color='primary'
-                            onClick={() => handleEdit(farmhouse)}
-                          >
-                            <Edit fontSize='small' />
+                          <IconButton size='small' onClick={() => handleEdit(farmhouse)} sx={{ color: '#9CA3AF', '&:hover': { color: '#3B82F6', backgroundColor: '#EFF6FF' } }}>
+                            <Edit sx={{ fontSize: 18 }} />
                           </IconButton>
                         </Tooltip>
                         {farmhouse.status === 'pending' && (
                           <>
                             <Tooltip title='Approve'>
-                              <IconButton
-                                size='small'
-                                color='success'
-                                onClick={() => handleApprove(farmhouse.farmhouse_id)}
-                              >
-                                <CheckCircle fontSize='small' />
+                              <IconButton size='small' onClick={() => handleApprove(farmhouse.farmhouse_id)} sx={{ color: '#9CA3AF', '&:hover': { color: '#10B981', backgroundColor: '#ECFDF5' } }}>
+                                <CheckCircle sx={{ fontSize: 18 }} />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title='Reject'>
-                              <IconButton
-                                size='small'
-                                color='warning'
-                                onClick={() => handleReject(farmhouse.farmhouse_id)}
-                              >
-                                <Cancel fontSize='small' />
+                              <IconButton size='small' onClick={() => handleReject(farmhouse.farmhouse_id)} sx={{ color: '#9CA3AF', '&:hover': { color: '#F59E0B', backgroundColor: '#FFFBEB' } }}>
+                                <Cancel sx={{ fontSize: 18 }} />
                               </IconButton>
                             </Tooltip>
                           </>
                         )}
                         <Tooltip title='Delete'>
-                          <IconButton
-                            size='small'
-                            color='error'
-                            onClick={() => handleOpenDeleteDialog(farmhouse)}
-                          >
-                            <Delete fontSize='small' />
+                          <IconButton size='small' onClick={() => handleOpenDeleteDialog(farmhouse)} sx={{ color: '#9CA3AF', '&:hover': { color: '#EF4444', backgroundColor: '#FEF2F2' } }}>
+                            <Delete sx={{ fontSize: 18 }} />
                           </IconButton>
                         </Tooltip>
                       </Box>

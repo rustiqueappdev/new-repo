@@ -213,10 +213,7 @@ const KYCManagement: React.FC = () => {
     return (
       <MainLayout>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <CircularProgress size={60} />
-            <Typography sx={{ mt: 2 }}>Loading KYC data...</Typography>
-          </Box>
+          <CircularProgress size={48} sx={{ color: '#10B981' }} />
         </Box>
       </MainLayout>
     );
@@ -225,92 +222,63 @@ const KYCManagement: React.FC = () => {
   return (
     <MainLayout>
       <Box>
-        <Box sx={{ mb: 3 }}>
-          <Typography variant='h4' fontWeight='bold' gutterBottom>
-            Owner KYC Management
-          </Typography>
-          <Typography variant='body2' color='text.secondary'>
-            Review and approve owner KYC submissions for farmhouse listings
-          </Typography>
-        </Box>
-
         {/* Statistics Cards */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant='body2' color='text.secondary'>
-                      Pending Review
-                    </Typography>
-                    <Typography variant='h4' fontWeight='bold' color='warning.main'>
-                      {pendingCount}
-                    </Typography>
+          {[
+            { label: 'Pending Review', value: pendingCount, color: '#F59E0B', bg: '#FFFBEB', icon: <Description sx={{ fontSize: 24 }} /> },
+            { label: 'Approved', value: approvedCount, color: '#10B981', bg: '#ECFDF5', icon: <CheckCircle sx={{ fontSize: 24 }} /> },
+            { label: 'Rejected', value: rejectedCount, color: '#EF4444', bg: '#FEF2F2', icon: <Cancel sx={{ fontSize: 24 }} /> },
+          ].map((stat) => (
+            <Grid size={{ xs: 12, sm: 4 }} key={stat.label}>
+              <Card elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                        {stat.label}
+                      </Typography>
+                      <Typography sx={{ fontSize: '2rem', fontWeight: 700, color: '#111827', lineHeight: 1, mt: 0.5 }}>
+                        {stat.value}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ width: 48, height: 48, borderRadius: 2.5, backgroundColor: stat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: stat.color }}>
+                      {stat.icon}
+                    </Box>
                   </Box>
-                  <Description sx={{ fontSize: 48, color: 'warning.main', opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant='body2' color='text.secondary'>
-                      Approved
-                    </Typography>
-                    <Typography variant='h4' fontWeight='bold' color='success.main'>
-                      {approvedCount}
-                    </Typography>
-                  </Box>
-                  <CheckCircle sx={{ fontSize: 48, color: 'success.main', opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography variant='body2' color='text.secondary'>
-                      Rejected
-                    </Typography>
-                    <Typography variant='h4' fontWeight='bold' color='error.main'>
-                      {rejectedCount}
-                    </Typography>
-                  </Box>
-                  <Cancel sx={{ fontSize: 48, color: 'error.main', opacity: 0.3 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
         </Grid>
 
         {/* Filters */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden', mb: 3 }}>
+          <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <TextField
-              fullWidth
-              placeholder='Search by name, email or phone...'
+              placeholder='Search owners...'
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              size='small'
+              sx={{
+                flex: 1, minWidth: 200,
+                '& .MuiOutlinedInput-root': { borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } },
+              }}
             />
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <MenuItem value='all'>All Status ({owners.length})</MenuItem>
+            <FormControl size='small' sx={{ minWidth: 160 }}>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                displayEmpty
+                sx={{ borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } }}
+              >
+                <MenuItem value='all'>All Status</MenuItem>
                 <MenuItem value='pending'>Pending ({pendingCount})</MenuItem>
                 <MenuItem value='approved'>Approved ({approvedCount})</MenuItem>
                 <MenuItem value='rejected'>Rejected ({rejectedCount})</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-        </Grid>
+          </Box>
+        </Paper>
 
         {/* Table */}
         {filtered.length === 0 ? (
@@ -320,59 +288,65 @@ const KYCManagement: React.FC = () => {
             icon='search'
           />
         ) : (
-          <TableContainer component={Paper}>
+          <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                  <TableCell><strong>Owner Name</strong></TableCell>
-                  <TableCell><strong>Email</strong></TableCell>
-                  <TableCell><strong>Phone</strong></TableCell>
-                  <TableCell><strong>KYC Status</strong></TableCell>
-                  <TableCell><strong>Submitted Date</strong></TableCell>
-                  <TableCell align='center'><strong>Actions</strong></TableCell>
+                <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
+                  <TableCell>Owner</TableCell>
+                  <TableCell>Phone</TableCell>
+                  <TableCell>KYC Status</TableCell>
+                  <TableCell>Submitted</TableCell>
+                  <TableCell align='center'>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filtered.map((owner) => (
-                  <TableRow key={owner.user_id} hover>
+                  <TableRow key={owner.user_id} hover sx={{ '&:hover': { backgroundColor: '#FAFAFA' }, '& td': { borderBottom: '1px solid #F3F4F6', py: 1.5 } }}>
                     <TableCell>
-                      <Typography fontWeight='bold'>{owner.name}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0 }}>
+                          {(owner.name || 'U').charAt(0).toUpperCase()}
+                        </Box>
+                        <Box>
+                          <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#111827' }}>{owner.name}</Typography>
+                          <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>{owner.email}</Typography>
+                        </Box>
+                      </Box>
                     </TableCell>
-                    <TableCell>{owner.email}</TableCell>
-                    <TableCell>{owner.phone || '-'}</TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: '0.85rem', color: '#6B7280' }}>{owner.phone || '-'}</Typography>
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={owner.kyc_status || 'Not Submitted'}
                         size='small'
-                        color={getStatusColor(owner.kyc_status)}
+                        sx={{
+                          backgroundColor: owner.kyc_status === 'approved' ? '#ECFDF5' : owner.kyc_status === 'rejected' ? '#FEF2F2' : owner.kyc_status === 'pending' ? '#FFFBEB' : '#F3F4F6',
+                          color: owner.kyc_status === 'approved' ? '#059669' : owner.kyc_status === 'rejected' ? '#DC2626' : owner.kyc_status === 'pending' ? '#D97706' : '#6B7280',
+                          fontWeight: 600, fontSize: '0.7rem', textTransform: 'capitalize',
+                        }}
                       />
                     </TableCell>
-                    <TableCell>{formatDate(owner.created_at)}</TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: '0.8rem', color: '#9CA3AF' }}>{formatDate(owner.created_at)}</Typography>
+                    </TableCell>
                     <TableCell align='center'>
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                        <Tooltip title='View KYC Details'>
-                          <IconButton size='small' onClick={() => handleViewKYC(owner)}>
-                            <Visibility fontSize='small' />
+                      <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+                        <Tooltip title='View Details'>
+                          <IconButton size='small' onClick={() => handleViewKYC(owner)} sx={{ color: '#9CA3AF', '&:hover': { color: '#6B7280', backgroundColor: '#F3F4F6' } }}>
+                            <Visibility sx={{ fontSize: 18 }} />
                           </IconButton>
                         </Tooltip>
                         {owner.kyc_status === 'pending' && (
                           <>
-                            <Tooltip title='Approve KYC'>
-                              <IconButton
-                                size='small'
-                                color='success'
-                                onClick={() => handleOpenActionDialog(owner, 'approve')}
-                              >
-                                <CheckCircle fontSize='small' />
+                            <Tooltip title='Approve'>
+                              <IconButton size='small' onClick={() => handleOpenActionDialog(owner, 'approve')} sx={{ color: '#9CA3AF', '&:hover': { color: '#10B981', backgroundColor: '#ECFDF5' } }}>
+                                <CheckCircle sx={{ fontSize: 18 }} />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title='Reject KYC'>
-                              <IconButton
-                                size='small'
-                                color='error'
-                                onClick={() => handleOpenActionDialog(owner, 'reject')}
-                              >
-                                <Cancel fontSize='small' />
+                            <Tooltip title='Reject'>
+                              <IconButton size='small' onClick={() => handleOpenActionDialog(owner, 'reject')} sx={{ color: '#9CA3AF', '&:hover': { color: '#EF4444', backgroundColor: '#FEF2F2' } }}>
+                                <Cancel sx={{ fontSize: 18 }} />
                               </IconButton>
                             </Tooltip>
                           </>

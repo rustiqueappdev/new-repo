@@ -204,27 +204,18 @@ const CommunicationCenter: React.FC = () => {
   return (
     <MainLayout>
       <Box>
-        <Box sx={{ mb: 3 }}>
-          <Typography variant='h4' fontWeight='bold' gutterBottom>
-            Communication Center
-          </Typography>
-          <Typography variant='body2' color='text.secondary'>
-            Send push notifications and messages to users and farmhouse owners. Messages are automatically sent as push notifications to mobile devices.
-          </Typography>
-        </Box>
-
-        <Grid container spacing={3}>
+        <Grid container spacing={2.5}>
           {/* Send Message Section */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Paper sx={{ p: 3 }} elevation={2}>
-              <Typography variant='h6' fontWeight='bold' gutterBottom>
+            <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#111827', mb: 0.5 }}>
                 Send Push Notification
               </Typography>
-              <Alert severity='info' sx={{ mb: 2 }}>
-                Messages will be delivered as push notifications to users' mobile devices
-              </Alert>
+              <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF', mb: 2.5 }}>
+                Messages are delivered as push notifications to mobile devices
+              </Typography>
               
-              <FormControl fullWidth sx={{ mb: 2 }}>
+              <FormControl fullWidth size='small' sx={{ mb: 2 }}>
                 <InputLabel>Recipients</InputLabel>
                 <Select
                   value={recipientType}
@@ -234,6 +225,7 @@ const CommunicationCenter: React.FC = () => {
                       {getRecipientIcon(recipientType)}
                     </InputAdornment>
                   }
+                  sx={{ borderRadius: 2 }}
                 >
                   <MenuItem value='all_users'>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -273,62 +265,61 @@ const CommunicationCenter: React.FC = () => {
                 label='Subject *'
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                sx={{ mb: 2 }}
+                size='small'
+                sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                 placeholder='Enter message subject'
               />
 
               <TextField
                 fullWidth
                 multiline
-                rows={8}
+                rows={6}
                 label='Message *'
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                sx={{ mb: 2 }}
+                sx={{ mb: 2.5, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                 placeholder='Enter your message here...'
               />
 
               <Button
                 fullWidth
                 variant='contained'
-                size='large'
-                startIcon={<Send />}
+                startIcon={<Send sx={{ fontSize: 18 }} />}
                 onClick={handleSendMessage}
                 disabled={sending || !subject.trim() || !message.trim()}
+                sx={{
+                  py: 1.25, textTransform: 'none', fontWeight: 600, borderRadius: 2, fontSize: '0.9rem',
+                  background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                  boxShadow: 'none',
+                  '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' },
+                  '&.Mui-disabled': { background: '#E5E7EB', color: '#9CA3AF' },
+                }}
               >
                 {sending ? 'Sending...' : 'Send Message'}
               </Button>
-
-              {recipientType === 'farmhouse_owners' && (
-                <Alert severity='info' sx={{ mt: 2 }}>
-                  This message will be sent to all owners who have listed farmhouses on the platform.
-                </Alert>
-              )}
             </Paper>
           </Grid>
 
           {/* Templates Section */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Paper sx={{ p: 3 }} elevation={2}>
-              <Typography variant='h6' fontWeight='bold' gutterBottom>
+            <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#111827', mb: 0.5 }}>
                 Message Templates
               </Typography>
-              <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+              <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF', mb: 2.5 }}>
                 Click on a template to use it
               </Typography>
               
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {templates.map((template, index) => (
-                  <Card key={index} variant='outlined'>
-                    <CardActionArea onClick={() => applyTemplate(template)}>
-                      <CardContent>
-                        <Typography variant='subtitle1' fontWeight='bold' gutterBottom>
-                          {template.title}
-                        </Typography>
-                        <Typography variant='body2' color='text.secondary' noWrap>
-                          {template.subject}
-                        </Typography>
-                      </CardContent>
+                  <Card key={index} elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 2, transition: 'all 0.2s', '&:hover': { borderColor: 'rgba(16,185,129,0.3)', backgroundColor: 'rgba(16,185,129,0.02)' } }}>
+                    <CardActionArea onClick={() => applyTemplate(template)} sx={{ p: 2 }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: '0.9rem', color: '#111827', mb: 0.25 }}>
+                        {template.title}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.8rem', color: '#9CA3AF' }} noWrap>
+                        {template.subject}
+                      </Typography>
                     </CardActionArea>
                   </Card>
                 ))}
@@ -338,49 +329,49 @@ const CommunicationCenter: React.FC = () => {
 
           {/* Communication History */}
           <Grid size={{ xs: 12 }}>
-            <Paper sx={{ p: 3 }} elevation={2}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant='h6' fontWeight='bold'>
-                  Communication History
-                </Typography>
+            <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
+                <Box>
+                  <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#111827' }}>Communication History</Typography>
+                  <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>{communications.length} messages sent</Typography>
+                </Box>
                 <TextField
                   size='small'
                   placeholder='Search messages...'
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   InputProps={{
-                    startAdornment: (
-                      <InputAdornment position='start'>
-                        <Search />
-                      </InputAdornment>
-                    ),
+                    startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 20, color: '#9CA3AF' }} /></InputAdornment>,
                   }}
-                  sx={{ width: 300 }}
+                  sx={{
+                    width: 260,
+                    '& .MuiOutlinedInput-root': { borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } },
+                  }}
                 />
               </Box>
 
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress />
+                  <CircularProgress size={48} sx={{ color: '#10B981' }} />
                 </Box>
               ) : (
                 <TableContainer>
                   <Table>
                     <TableHead>
-                      <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                        <TableCell><strong>Date</strong></TableCell>
-                        <TableCell><strong>Recipients</strong></TableCell>
-                        <TableCell><strong>Subject</strong></TableCell>
-                        <TableCell><strong>Message</strong></TableCell>
-                        <TableCell><strong>Recipients</strong></TableCell>
-                        <TableCell><strong>Delivery Status</strong></TableCell>
+                      <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Recipients</TableCell>
+                        <TableCell>Subject</TableCell>
+                        <TableCell>Message</TableCell>
+                        <TableCell>Count</TableCell>
+                        <TableCell>Delivery</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {filteredComms.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} align='center' sx={{ py: 4 }}>
-                            <Typography color='text.secondary'>
+                            <Typography sx={{ color: '#9CA3AF' }}>
                               {communications.length === 0 
                                 ? 'No messages sent yet. Send your first message above.'
                                 : 'No messages match your search.'}
@@ -389,9 +380,9 @@ const CommunicationCenter: React.FC = () => {
                         </TableRow>
                       ) : (
                         filteredComms.map((comm) => (
-                          <TableRow key={comm.id} hover>
+                          <TableRow key={comm.id} hover sx={{ '&:hover': { backgroundColor: '#FAFAFA' }, '& td': { borderBottom: '1px solid #F3F4F6', py: 1.5 } }}>
                             <TableCell>
-                              <Typography variant='body2'>
+                              <Typography sx={{ fontSize: '0.8rem', color: '#6B7280' }}>
                                 {comm.sent_at?.toDate ? 
                                   new Date(comm.sent_at.toDate()).toLocaleDateString('en-IN', {
                                     day: 'numeric',
@@ -402,53 +393,41 @@ const CommunicationCenter: React.FC = () => {
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {getRecipientIcon(comm.recipientType)}
-                                <Chip
-                                  label={getRecipientLabel(comm.recipientType)}
-                                  size='small'
-                                  variant='outlined'
-                                />
-                              </Box>
+                              <Chip
+                                label={getRecipientLabel(comm.recipientType)}
+                                size='small'
+                                sx={{ backgroundColor: '#EFF6FF', color: '#2563EB', fontWeight: 600, fontSize: '0.7rem' }}
+                              />
                             </TableCell>
                             <TableCell>
-                              <Typography variant='body2' fontWeight='medium'>
+                              <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#111827' }}>
                                 {comm.title}
                               </Typography>
                             </TableCell>
                             <TableCell sx={{ maxWidth: 300 }}>
-                              <Typography variant='body2' noWrap>
+                              <Typography sx={{ fontSize: '0.8rem', color: '#6B7280' }} noWrap>
                                 {comm.message}
                               </Typography>
                             </TableCell>
                             <TableCell>
                               <Chip
-                                label={`${comm.recipientCount || 0} users`}
+                                label={`${comm.recipientCount || 0}`}
                                 size='small'
-                                color='primary'
+                                sx={{ backgroundColor: '#F3F4F6', color: '#6B7280', fontWeight: 600, fontSize: '0.7rem', minWidth: 32 }}
                               />
                             </TableCell>
                             <TableCell>
                               {comm.notificationSent ? (
-                                <Box>
-                                  <Chip
-                                    label={`✓ ${comm.deliveryStatus?.success || 0} sent`}
-                                    color='success'
-                                    size='small'
-                                  />
+                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                  <Chip label={`${comm.deliveryStatus?.success || 0} sent`} size='small' sx={{ backgroundColor: '#ECFDF5', color: '#059669', fontWeight: 600, fontSize: '0.65rem' }} />
                                   {comm.deliveryStatus && comm.deliveryStatus.failure > 0 && (
-                                    <Chip
-                                      label={`✗ ${comm.deliveryStatus.failure} failed`}
-                                      color='error'
-                                      size='small'
-                                      sx={{ ml: 0.5 }}
-                                    />
+                                    <Chip label={`${comm.deliveryStatus.failure} failed`} size='small' sx={{ backgroundColor: '#FEF2F2', color: '#DC2626', fontWeight: 600, fontSize: '0.65rem' }} />
                                   )}
                                 </Box>
                               ) : comm.notificationError ? (
-                                <Chip label='Failed' color='error' size='small' />
+                                <Chip label='Failed' size='small' sx={{ backgroundColor: '#FEF2F2', color: '#DC2626', fontWeight: 600, fontSize: '0.7rem' }} />
                               ) : (
-                                <Chip label='Pending' color='warning' size='small' />
+                                <Chip label='Pending' size='small' sx={{ backgroundColor: '#FFFBEB', color: '#D97706', fontWeight: 600, fontSize: '0.7rem' }} />
                               )}
                             </TableCell>
                           </TableRow>

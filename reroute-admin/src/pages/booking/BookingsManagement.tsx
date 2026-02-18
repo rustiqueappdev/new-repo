@@ -352,10 +352,7 @@ const BookingsManagement: React.FC = () => {
     return (
       <MainLayout>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <CircularProgress size={60} />
-            <Typography sx={{ mt: 2 }}>Loading bookings...</Typography>
-          </Box>
+          <CircularProgress size={48} sx={{ color: '#10B981' }} />
         </Box>
       </MainLayout>
     );
@@ -365,61 +362,74 @@ const BookingsManagement: React.FC = () => {
     <MainLayout>
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant='h4' fontWeight='bold' gutterBottom>
-              Bookings Management
-            </Typography>
-            <Typography variant='body2' color='text.secondary'>
-              Total Bookings: {bookings.length} | Showing: {filtered.length}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Chip
+              label={`${bookings.length} total`}
+              size='small'
+              sx={{ backgroundColor: '#F3F4F6', color: '#6B7280', fontWeight: 600, fontSize: '0.75rem' }}
+            />
+            {filtered.length !== bookings.length && (
+              <Chip
+                label={`${filtered.length} shown`}
+                size='small'
+                sx={{ backgroundColor: '#EFF6FF', color: '#3B82F6', fontWeight: 600, fontSize: '0.75rem' }}
+              />
+            )}
           </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Tooltip title='Refresh Bookings'>
-              <IconButton color='primary' onClick={fetchBookings}>
-                <Refresh />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Tooltip title='Refresh'>
+              <IconButton onClick={fetchBookings} sx={{ color: '#9CA3AF', backgroundColor: '#F3F4F6', '&:hover': { backgroundColor: '#E5E7EB' }, width: 36, height: 36 }}>
+                <Refresh sx={{ fontSize: 20 }} />
               </IconButton>
             </Tooltip>
             <Button
               variant='contained'
-              startIcon={<Download />}
+              startIcon={<Download sx={{ fontSize: 18 }} />}
               onClick={handleExportCSV}
               disabled={filtered.length === 0}
+              sx={{
+                textTransform: 'none', fontWeight: 600, borderRadius: 2, px: 2.5,
+                background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                boxShadow: 'none',
+                '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' },
+                '&.Mui-disabled': { background: '#E5E7EB', color: '#9CA3AF' },
+              }}
             >
               Export CSV
             </Button>
           </Box>
         </Box>
 
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <FormControl fullWidth>
-              <InputLabel>Booking Status</InputLabel>
-              <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <MenuItem value='all'>All ({bookings.length})</MenuItem>
-                <MenuItem value='confirmed'>
-                  Confirmed ({bookings.filter(b => b.status === 'confirmed').length})
-                </MenuItem>
-                <MenuItem value='cancelled'>
-                  Cancelled ({bookings.filter(b => b.status === 'cancelled').length})
-                </MenuItem>
-                <MenuItem value='completed'>
-                  Completed ({bookings.filter(b => b.status === 'completed').length})
-                </MenuItem>
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden', mb: 3 }}>
+          <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <FormControl size='small' sx={{ minWidth: 180 }}>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                displayEmpty
+                sx={{ borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } }}
+              >
+                <MenuItem value='all'>All Status ({bookings.length})</MenuItem>
+                <MenuItem value='confirmed'>Confirmed ({bookings.filter(b => b.status === 'confirmed').length})</MenuItem>
+                <MenuItem value='cancelled'>Cancelled ({bookings.filter(b => b.status === 'cancelled').length})</MenuItem>
+                <MenuItem value='completed'>Completed ({bookings.filter(b => b.status === 'completed').length})</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <FormControl fullWidth>
-              <InputLabel>Payment Status</InputLabel>
-              <Select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}>
-                <MenuItem value='all'>All</MenuItem>
+            <FormControl size='small' sx={{ minWidth: 180 }}>
+              <Select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+                displayEmpty
+                sx={{ borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } }}
+              >
+                <MenuItem value='all'>All Payments</MenuItem>
                 <MenuItem value='pending'>Pending</MenuItem>
                 <MenuItem value='paid'>Paid</MenuItem>
                 <MenuItem value='refunded'>Refunded</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-        </Grid>
+          </Box>
+        </Paper>
 
         {filtered.length === 0 ? (
           <EmptyState
@@ -428,131 +438,117 @@ const BookingsManagement: React.FC = () => {
             icon='search'
           />
         ) : (
-          <TableContainer component={Paper} elevation={2}>
+          <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                  <TableCell><strong>Booking ID</strong></TableCell>
-                  <TableCell><strong>User</strong></TableCell>
-                  <TableCell><strong>Farmhouse</strong></TableCell>
-                  <TableCell><strong>Dates</strong></TableCell>
-                  <TableCell><strong>Guests</strong></TableCell>
-                  <TableCell><strong>Amount</strong></TableCell>
-                  <TableCell><strong>Payment</strong></TableCell>
-                  <TableCell><strong>Status</strong></TableCell>
-                  <TableCell align='center'><strong>Actions</strong></TableCell>
+                <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
+                  <TableCell>Booking</TableCell>
+                  <TableCell>User</TableCell>
+                  <TableCell>Farmhouse</TableCell>
+                  <TableCell>Dates</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Payment</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align='center'>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filtered.map((booking) => (
-                  <TableRow key={booking.booking_id} hover>
+                  <TableRow key={booking.booking_id} hover sx={{ '&:hover': { backgroundColor: '#FAFAFA' }, '& td': { borderBottom: '1px solid #F3F4F6', py: 1.5 } }}>
                     <TableCell>
-                      <Typography variant='body2' fontFamily='monospace'>
+                      <Typography sx={{ fontSize: '0.8rem', fontFamily: 'monospace', color: '#6B7280', fontWeight: 500 }}>
                         {booking.booking_id?.substring(0, 8) || 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{
+                          width: 34, height: 34, borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', flexShrink: 0,
+                        }}>
                           <PersonOutline sx={{ fontSize: 18 }} />
-                        </Avatar>
+                        </Box>
                         <Box>
-                          <Typography variant='body2' fontWeight='bold'>
+                          <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#111827' }}>
                             {booking.userName || 'Unknown User'}
                           </Typography>
-                          <Typography variant='caption' color='text.secondary'>
+                          <Typography sx={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
                             {booking.userPhone || ''}
                           </Typography>
                         </Box>
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <HomeOutlined color='action' sx={{ fontSize: 18 }} />
-                        <Typography variant='body2' fontWeight='medium'>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <HomeOutlined sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                        <Typography sx={{ fontSize: '0.85rem', fontWeight: 500, color: '#374151' }}>
                           {booking.farmhouseName || 'N/A'}
                         </Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <CalendarToday sx={{ fontSize: 14, color: 'text.secondary' }} />
-                        <Typography variant='body2'>
-                          {formatDate(booking.checkInDate)} - {formatDate(booking.checkOutDate)}
-                        </Typography>
-                      </Box>
-                      <Typography variant='caption' color='text.secondary'>
-                        {booking.bookingType === 'dayuse' ? 'Day Use' : 'Overnight'}
+                      <Typography sx={{ fontSize: '0.8rem', color: '#374151' }}>
+                        {formatDate(booking.checkInDate)}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
+                        to {formatDate(booking.checkOutDate)} · {booking.guests || 0} guests
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip label={`${booking.guests || 0} guests`} size='small' variant='outlined' />
-                    </TableCell>
-                    <TableCell>
-                      <Box>
-                        <Typography variant='body2' fontWeight='bold'>
-                          ₹{booking.totalPrice?.toLocaleString() || '0'}
+                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827' }}>
+                        ₹{booking.totalPrice?.toLocaleString() || '0'}
+                      </Typography>
+                      {(booking.discountApplied || 0) > 0 && (
+                        <Typography sx={{ fontSize: '0.7rem', color: '#10B981', fontWeight: 500 }}>
+                          -₹{booking.discountApplied} off
                         </Typography>
-                        {(booking.discountApplied || 0) > 0 && (
-                          <Typography variant='caption' color='success.main'>
-                            -₹{booking.discountApplied} discount
-                          </Typography>
-                        )}
-                      </Box>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Chip
                         label={booking.paymentStatus || 'pending'}
-                        color={
-                          booking.paymentStatus === 'paid' ? 'success' :
-                          booking.paymentStatus === 'refunded' ? 'error' :
-                          'warning'
-                        }
                         size='small'
+                        sx={{
+                          backgroundColor: booking.paymentStatus === 'paid' ? '#ECFDF5' : booking.paymentStatus === 'refunded' ? '#FEF2F2' : '#FFFBEB',
+                          color: booking.paymentStatus === 'paid' ? '#059669' : booking.paymentStatus === 'refunded' ? '#DC2626' : '#D97706',
+                          fontWeight: 600, fontSize: '0.7rem', textTransform: 'capitalize',
+                        }}
                       />
                     </TableCell>
                     <TableCell>
                       <Chip
                         label={booking.status || 'pending'}
-                        color={
-                          booking.status === 'confirmed' ? 'success' :
-                          booking.status === 'cancelled' ? 'error' :
-                          'info'
-                        }
                         size='small'
+                        sx={{
+                          backgroundColor: booking.status === 'confirmed' ? '#ECFDF5' : booking.status === 'cancelled' ? '#FEF2F2' : '#EFF6FF',
+                          color: booking.status === 'confirmed' ? '#059669' : booking.status === 'cancelled' ? '#DC2626' : '#2563EB',
+                          fontWeight: 600, fontSize: '0.7rem', textTransform: 'capitalize',
+                        }}
                       />
                     </TableCell>
                     <TableCell align='center'>
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                        <Tooltip title='View Details'>
+                      <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+                        <Tooltip title='View'>
                           <IconButton
                             size='small'
-                            onClick={() => {
-                              setSelectedBooking(booking);
-                              setDetailsModalOpen(true);
-                            }}
+                            onClick={() => { setSelectedBooking(booking); setDetailsModalOpen(true); }}
+                            sx={{ color: '#9CA3AF', '&:hover': { color: '#6B7280', backgroundColor: '#F3F4F6' } }}
                           >
-                            <Visibility fontSize='small' />
+                            <Visibility sx={{ fontSize: 18 }} />
                           </IconButton>
                         </Tooltip>
                         {booking.status !== 'cancelled' && booking.status !== 'completed' && (
                           <>
-                            <Tooltip title='Edit Booking'>
-                              <IconButton
-                                size='small'
-                                color='primary'
-                                onClick={() => handleOpenEdit(booking)}
-                              >
-                                <Edit fontSize='small' />
+                            <Tooltip title='Edit'>
+                              <IconButton size='small' onClick={() => handleOpenEdit(booking)} sx={{ color: '#9CA3AF', '&:hover': { color: '#3B82F6', backgroundColor: '#EFF6FF' } }}>
+                                <Edit sx={{ fontSize: 18 }} />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title='Cancel Booking'>
-                              <IconButton
-                                size='small'
-                                color='error'
-                                onClick={() => handleOpenCancelDialog(booking)}
-                              >
-                                <CancelIcon fontSize='small' />
+                            <Tooltip title='Cancel'>
+                              <IconButton size='small' onClick={() => handleOpenCancelDialog(booking)} sx={{ color: '#9CA3AF', '&:hover': { color: '#EF4444', backgroundColor: '#FEF2F2' } }}>
+                                <CancelIcon sx={{ fontSize: 18 }} />
                               </IconButton>
                             </Tooltip>
                           </>

@@ -3,7 +3,7 @@ import { Box } from '@mui/material';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
-const drawerWidth = 260;
+const drawerWidth = 272;
 
 interface MainLayoutProps {
   children: React.ReactNode;

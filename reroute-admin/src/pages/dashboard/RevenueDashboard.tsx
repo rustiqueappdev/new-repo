@@ -141,7 +141,7 @@ const RevenueDashboard: React.FC = () => {
     return (
       <MainLayout>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
-          <CircularProgress />
+          <CircularProgress size={48} sx={{ color: '#10B981' }} />
         </Box>
       </MainLayout>
     );
@@ -150,13 +150,14 @@ const RevenueDashboard: React.FC = () => {
   return (
     <MainLayout>
       <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-          <Typography variant='h4' fontWeight='bold'>
-            Revenue Dashboard
-          </Typography>
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Period</InputLabel>
-            <Select value={period} onChange={(e) => setPeriod(e.target.value)}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+          <FormControl size='small' sx={{ minWidth: 150 }}>
+            <Select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              displayEmpty
+              sx={{ borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } }}
+            >
               <MenuItem value='7days'>Last 7 Days</MenuItem>
               <MenuItem value='30days'>Last 30 Days</MenuItem>
               <MenuItem value='90days'>Last 90 Days</MenuItem>
@@ -164,63 +165,50 @@ const RevenueDashboard: React.FC = () => {
           </FormControl>
         </Box>
 
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography variant='body2' color='text.secondary'>Total Revenue</Typography>
-                <Typography variant='h4'>₹{stats.totalRevenue.toLocaleString()}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography variant='body2' color='text.secondary'>Total Commission</Typography>
-                <Typography variant='h4' color='success.main'>₹{stats.totalCommission.toLocaleString()}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography variant='body2' color='text.secondary'>Avg Booking Value</Typography>
-                <Typography variant='h4'>₹{Math.round(stats.averageBookingValue).toLocaleString()}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Typography variant='body2' color='text.secondary'>Growth Rate</Typography>
-                <Typography variant='h4' color='primary'>{stats.growthRate}%</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {[
+            { label: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString()}`, color: '#3B82F6', bg: '#EFF6FF' },
+            { label: 'Total Commission', value: `₹${stats.totalCommission.toLocaleString()}`, color: '#10B981', bg: '#ECFDF5' },
+            { label: 'Avg Booking Value', value: `₹${Math.round(stats.averageBookingValue).toLocaleString()}`, color: '#8B5CF6', bg: '#F5F3FF' },
+            { label: 'Growth Rate', value: `${stats.growthRate}%`, color: '#F59E0B', bg: '#FFFBEB' },
+          ].map((stat) => (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={stat.label}>
+              <Card elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    {stat.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: '1.75rem', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
+                    {stat.value}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
         </Grid>
 
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant='h6' gutterBottom>Revenue Trend</Typography>
+        <Paper elevation={0} sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#111827', mb: 2 }}>Revenue Trend</Typography>
           <ResponsiveContainer width='100%' height={300}>
             <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray='3 3' />
-              <XAxis dataKey='date' />
-              <YAxis />
-              <Tooltip />
-              <Line type='monotone' dataKey='revenue' stroke='#4CAF50' strokeWidth={2} />
+              <CartesianGrid strokeDasharray='3 3' stroke='#F3F4F6' />
+              <XAxis dataKey='date' tick={{ fontSize: 12, fill: '#9CA3AF' }} />
+              <YAxis tick={{ fontSize: 12, fill: '#9CA3AF' }} />
+              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+              <Line type='monotone' dataKey='revenue' stroke='#10B981' strokeWidth={2.5} dot={{ fill: '#10B981', r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         </Paper>
 
-        <Paper sx={{ p: 3 }}>
-          <Typography variant='h6' gutterBottom>Commission Overview</Typography>
+        <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#111827', mb: 2 }}>Commission Overview</Typography>
           <ResponsiveContainer width='100%' height={300}>
             <BarChart data={revenueData}>
-              <CartesianGrid strokeDasharray='3 3' />
-              <XAxis dataKey='date' />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey='commission' fill='#2196F3' />
+              <CartesianGrid strokeDasharray='3 3' stroke='#F3F4F6' />
+              <XAxis dataKey='date' tick={{ fontSize: 12, fill: '#9CA3AF' }} />
+              <YAxis tick={{ fontSize: 12, fill: '#9CA3AF' }} />
+              <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E5E7EB', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+              <Bar dataKey='commission' fill='#3B82F6' radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Paper>
