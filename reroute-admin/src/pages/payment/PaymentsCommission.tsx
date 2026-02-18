@@ -197,7 +197,7 @@ const PaymentsCommission: React.FC = () => {
     return (
       <MainLayout>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
-          <CircularProgress size={60} />
+          <CircularProgress size={48} sx={{ color: '#10B981' }} />
         </Box>
       </MainLayout>
     );
@@ -206,112 +206,70 @@ const PaymentsCommission: React.FC = () => {
   return (
     <MainLayout>
       <Box>
-        <Typography variant='h4' fontWeight='bold' gutterBottom>
-          Payments & Commission
-        </Typography>
-        <Typography variant='body2' color='text.secondary' sx={{ mb: 3 }}>
-          Track revenue, commission, and owner payouts
-        </Typography>
-
         {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card elevation={2}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <TrendingUp color='primary' />
-                  <Typography variant='body2' color='text.secondary'>Total Revenue</Typography>
-                </Box>
-                <Typography variant='h4' color='primary.main'>
-                  ₹{stats.totalRevenue.toLocaleString()}
-                </Typography>
-                <Typography variant='caption' color='text.secondary'>
-                  From all paid bookings
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card elevation={2}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Payment color='success' />
-                  <Typography variant='body2' color='text.secondary'>Total Commission</Typography>
-                </Box>
-                <Typography variant='h4' color='success.main'>
-                  ₹{stats.totalCommission.toLocaleString()}
-                </Typography>
-                <Typography variant='caption' color='text.secondary'>
-                  Platform earnings (10%)
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card elevation={2}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <PendingActions color='warning' />
-                  <Typography variant='body2' color='text.secondary'>Pending Payouts</Typography>
-                </Box>
-                <Typography variant='h4' color='warning.main'>
-                  ₹{stats.pendingPayouts.toLocaleString()}
-                </Typography>
-                <Typography variant='caption' color='text.secondary'>
-                  To be paid to owners
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card elevation={2}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <CheckCircle color='info' />
-                  <Typography variant='body2' color='text.secondary'>Completed Payouts</Typography>
-                </Box>
-                <Typography variant='h4' color='info.main'>
-                  ₹{stats.completedPayouts.toLocaleString()}
-                </Typography>
-                <Typography variant='caption' color='text.secondary'>
-                  Already paid to owners
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {[
+            { label: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString()}`, sub: 'From all paid bookings', color: '#3B82F6', bg: '#EFF6FF', icon: <TrendingUp sx={{ fontSize: 24 }} /> },
+            { label: 'Total Commission', value: `₹${stats.totalCommission.toLocaleString()}`, sub: 'Platform earnings', color: '#10B981', bg: '#ECFDF5', icon: <Payment sx={{ fontSize: 24 }} /> },
+            { label: 'Pending Payouts', value: `₹${stats.pendingPayouts.toLocaleString()}`, sub: 'To be paid to owners', color: '#F59E0B', bg: '#FFFBEB', icon: <PendingActions sx={{ fontSize: 24 }} /> },
+            { label: 'Completed Payouts', value: `₹${stats.completedPayouts.toLocaleString()}`, sub: 'Already paid', color: '#8B5CF6', bg: '#F5F3FF', icon: <CheckCircle sx={{ fontSize: 24 }} /> },
+          ].map((stat) => (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={stat.label}>
+              <Card elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                        {stat.label}
+                      </Typography>
+                      <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827', lineHeight: 1.2, mt: 0.5 }}>
+                        {stat.value}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.7rem', color: '#9CA3AF', mt: 0.5 }}>
+                        {stat.sub}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ width: 44, height: 44, borderRadius: 2.5, backgroundColor: stat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: stat.color, flexShrink: 0 }}>
+                      {stat.icon}
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
         </Grid>
 
         {/* Tabs */}
-        <Paper elevation={2} sx={{ mb: 3 }}>
+        <Paper elevation={0} sx={{ mb: 3, border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden' }}>
           <Tabs 
             value={activeTab} 
             onChange={(_, v) => setActiveTab(v)}
-            sx={{ borderBottom: 1, borderColor: 'divider' }}
+            sx={{
+              '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, fontSize: '0.85rem', color: '#6B7280', minHeight: 48 },
+              '& .Mui-selected': { color: '#10B981 !important' },
+              '& .MuiTabs-indicator': { backgroundColor: '#10B981' },
+            }}
           >
             <Tab label={`All (${bookings.filter(b => b.paymentStatus === 'paid').length})`} />
-            <Tab 
-              label={`Pending (${bookings.filter(b => b.paymentStatus === 'paid' && !b.commission_paid_to_owner).length})`} 
-            />
-            <Tab 
-              label={`Paid (${bookings.filter(b => b.paymentStatus === 'paid' && b.commission_paid_to_owner).length})`} 
-            />
+            <Tab label={`Pending (${bookings.filter(b => b.paymentStatus === 'paid' && !b.commission_paid_to_owner).length})`} />
+            <Tab label={`Paid (${bookings.filter(b => b.paymentStatus === 'paid' && b.commission_paid_to_owner).length})`} />
           </Tabs>
         </Paper>
 
         {/* Table */}
-        <TableContainer component={Paper} elevation={2}>
+        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
           <Table>
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                <TableCell><strong>Booking ID</strong></TableCell>
-                <TableCell><strong>User</strong></TableCell>
-                <TableCell><strong>Farmhouse</strong></TableCell>
-                <TableCell><strong>Dates</strong></TableCell>
-                <TableCell><strong>Amount</strong></TableCell>
-                <TableCell><strong>Commission</strong></TableCell>
-                <TableCell><strong>Owner Payout</strong></TableCell>
-                <TableCell><strong>Status</strong></TableCell>
-                <TableCell align='center'><strong>Actions</strong></TableCell>
+              <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
+                <TableCell>Booking</TableCell>
+                <TableCell>User</TableCell>
+                <TableCell>Farmhouse</TableCell>
+                <TableCell>Dates</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>Commission</TableCell>
+                <TableCell>Owner Payout</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align='center'>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -333,93 +291,85 @@ const PaymentsCommission: React.FC = () => {
                   const ownerPayout = (booking.totalPrice || 0) * 0.9;
 
                   return (
-                    <TableRow key={booking.booking_id} hover>
+                    <TableRow key={booking.booking_id} hover sx={{ '&:hover': { backgroundColor: '#FAFAFA' }, '& td': { borderBottom: '1px solid #F3F4F6', py: 1.5 } }}>
                       <TableCell>
-                        <Typography variant='body2' fontFamily='monospace'>
+                        <Typography sx={{ fontSize: '0.8rem', fontFamily: 'monospace', color: '#6B7280', fontWeight: 500 }}>
                           {booking.booking_id?.substring(0, 8) || 'N/A'}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box sx={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
                             <PersonOutline sx={{ fontSize: 18 }} />
-                          </Avatar>
+                          </Box>
                           <Box>
-                            <Typography variant='body2' fontWeight='bold'>
+                            <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#111827' }}>
                               {booking.userName || 'Unknown User'}
                             </Typography>
-                            <Typography variant='caption' color='text.secondary'>
+                            <Typography sx={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
                               {booking.userPhone || ''}
                             </Typography>
                           </Box>
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <HomeOutlined color='action' sx={{ fontSize: 18 }} />
-                          <Typography variant='body2' fontWeight='medium'>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <HomeOutlined sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                          <Typography sx={{ fontSize: '0.85rem', fontWeight: 500, color: '#374151' }}>
                             {booking.farmhouseName || 'N/A'}
                           </Typography>
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant='body2'>
+                        <Typography sx={{ fontSize: '0.8rem', color: '#374151' }}>
                           {formatDate(booking.checkInDate)}
                         </Typography>
-                        <Typography variant='caption' color='text.secondary'>
+                        <Typography sx={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
                           to {formatDate(booking.checkOutDate)}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant='body2' fontWeight='bold'>
+                        <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827' }}>
                           ₹{booking.totalPrice?.toLocaleString() || '0'}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant='body2' color='success.main' fontWeight='medium'>
+                        <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#10B981' }}>
                           ₹{commission.toLocaleString()}
                         </Typography>
-                        <Typography variant='caption' color='text.secondary'>
-                          (10%)
-                        </Typography>
+                        <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>(10%)</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant='body2' fontWeight='bold'>
+                        <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827' }}>
                           ₹{ownerPayout.toLocaleString()}
                         </Typography>
-                        <Typography variant='caption' color='text.secondary'>
-                          (90%)
-                        </Typography>
+                        <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>(90%)</Typography>
                       </TableCell>
                       <TableCell>
                         <Chip
                           label={booking.commission_paid_to_owner ? 'Paid' : 'Pending'}
-                          color={booking.commission_paid_to_owner ? 'success' : 'warning'}
                           size='small'
+                          sx={{
+                            backgroundColor: booking.commission_paid_to_owner ? '#ECFDF5' : '#FFFBEB',
+                            color: booking.commission_paid_to_owner ? '#059669' : '#D97706',
+                            fontWeight: 600, fontSize: '0.7rem',
+                          }}
                         />
                       </TableCell>
                       <TableCell align='center'>
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                          <Tooltip title='View Details'>
-                            <IconButton 
-                              size='small' 
-                              color='primary'
-                              onClick={() => {
-                                setSelectedBooking(booking);
-                                setDetailsModalOpen(true);
-                              }}
-                            >
-                              <Visibility />
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center' }}>
+                          <Tooltip title='View'>
+                            <IconButton size='small' onClick={() => { setSelectedBooking(booking); setDetailsModalOpen(true); }} sx={{ color: '#9CA3AF', '&:hover': { color: '#6B7280', backgroundColor: '#F3F4F6' } }}>
+                              <Visibility sx={{ fontSize: 18 }} />
                             </IconButton>
                           </Tooltip>
                           {!booking.commission_paid_to_owner && (
                             <Button
                               size='small'
-                              variant='contained'
-                              color='success'
                               onClick={() => markAsPaid(booking.booking_id)}
+                              sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', borderRadius: 1.5, px: 1.5, py: 0.5, backgroundColor: '#ECFDF5', color: '#059669', '&:hover': { backgroundColor: '#D1FAE5' } }}
                             >
-                              Mark as Paid
+                              Mark Paid
                             </Button>
                           )}
                         </Box>

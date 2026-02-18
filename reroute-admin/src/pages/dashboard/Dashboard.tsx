@@ -7,7 +7,6 @@ import {
   Typography,
   Box,
   Paper,
-  Chip,
   alpha
 } from '@mui/material';
 import {
@@ -18,7 +17,9 @@ import {
   CheckCircle,
   TrendingUp,
   ArrowForward,
-  NotificationsActive
+  CalendarToday,
+  DateRange,
+  EventNote
 } from '@mui/icons-material';
 import MainLayout from '../../components/layout/MainLayout';
 import { useDashboardStats } from '../../hooks/useDashboardStats';
@@ -32,45 +33,82 @@ const Dashboard: React.FC = () => {
     {
       title: 'Total Farmhouses',
       value: stats.totalFarmhouses,
-      icon: <HomeWork sx={{ fontSize: 40 }} />,
-      color: '#2196F3',
+      icon: <HomeWork />,
+      gradient: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+      lightBg: '#EFF6FF',
+      iconColor: '#3B82F6',
       path: '/farmhouses'
     },
     {
       title: 'Pending Approvals',
       value: stats.pendingFarmhouses,
-      icon: <CheckCircle sx={{ fontSize: 40 }} />,
-      color: '#FF9800',
+      icon: <CheckCircle />,
+      gradient: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+      lightBg: '#FFFBEB',
+      iconColor: '#F59E0B',
       path: '/farmhouse-approvals',
       highlight: stats.pendingFarmhouses > 0
     },
     {
       title: 'Total Users',
       value: stats.totalUsers,
-      icon: <People sx={{ fontSize: 40 }} />,
-      color: '#4CAF50',
+      icon: <People />,
+      gradient: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+      lightBg: '#ECFDF5',
+      iconColor: '#10B981',
       path: '/users'
     },
     {
       title: 'Total Bookings',
       value: stats.totalBookings,
-      icon: <BookOnline sx={{ fontSize: 40 }} />,
-      color: '#9C27B0',
+      icon: <BookOnline />,
+      gradient: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+      lightBg: '#F5F3FF',
+      iconColor: '#8B5CF6',
       path: '/bookings'
     },
     {
       title: 'Active Coupons',
       value: stats.activeCoupons,
-      icon: <LocalOffer sx={{ fontSize: 40 }} />,
-      color: '#F44336',
+      icon: <LocalOffer />,
+      gradient: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+      lightBg: '#FEF2F2',
+      iconColor: '#EF4444',
       path: '/coupons'
     }
   ];
 
   const bookingStats = [
-    { label: 'Today', value: stats.todayBookings },
-    { label: 'This Week', value: stats.weekBookings },
-    { label: 'This Month', value: stats.monthBookings }
+    { label: 'Today', value: stats.todayBookings, icon: <CalendarToday sx={{ fontSize: 18 }} /> },
+    { label: 'This Week', value: stats.weekBookings, icon: <DateRange sx={{ fontSize: 18 }} /> },
+    { label: 'This Month', value: stats.monthBookings, icon: <EventNote sx={{ fontSize: 18 }} /> }
+  ];
+
+  const quickActions = [
+    ...(stats.pendingFarmhouses > 0 ? [{
+      label: `${stats.pendingFarmhouses} farmhouse${stats.pendingFarmhouses > 1 ? 's' : ''} awaiting approval`,
+      path: '/farmhouse-approvals',
+      color: '#F59E0B',
+      bg: alpha('#F59E0B', 0.08),
+    }] : []),
+    {
+      label: 'Create New Coupon',
+      path: '/coupons',
+      color: '#8B5CF6',
+      bg: alpha('#8B5CF6', 0.08),
+    },
+    {
+      label: 'View All Bookings',
+      path: '/bookings',
+      color: '#10B981',
+      bg: alpha('#10B981', 0.08),
+    },
+    {
+      label: 'Revenue Dashboard',
+      path: '/revenue',
+      color: '#3B82F6',
+      bg: alpha('#3B82F6', 0.08),
+    },
   ];
 
   if (loading) {
@@ -84,111 +122,83 @@ const Dashboard: React.FC = () => {
   return (
     <MainLayout>
       <Box>
-        <Box sx={{ mb: 4 }}>
-          <Typography variant='h4' fontWeight='bold' gutterBottom>
-            Dashboard Overview
-          </Typography>
-          <Typography variant='body1' color='text.secondary'>
-            Monitor and manage your farmhouse rental platform
-          </Typography>
-        </Box>
-
-        <Grid container spacing={3}>
+        <Grid container spacing={2.5}>
           {statCards.map((card, index) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
+            <Grid size={{ xs: 12, sm: 6, md: 4, lg: index < 3 ? 4 : 6 }} key={index}>
               <Card
                 sx={{
                   height: '100%',
                   cursor: 'pointer',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transition: 'all 0.2s ease',
+                  border: '1px solid',
+                  borderColor: alpha('#000', 0.06),
+                  boxShadow: 'none',
                   position: 'relative',
-                  overflow: 'visible',
-                  background: card.highlight
-                    ? `linear-gradient(135deg, ${alpha(card.color, 0.1)} 0%, ${alpha(card.color, 0.05)} 100%)`
-                    : 'background.paper',
-                  border: card.highlight ? `2px solid ${card.color}` : 'none',
+                  overflow: 'hidden',
                   '&:hover': {
-                    transform: 'translateY(-8px)',
-                    boxShadow: `0 12px 24px ${alpha(card.color, 0.2)}`
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 8px 24px ${alpha(card.iconColor, 0.15)}`,
+                    borderColor: alpha(card.iconColor, 0.2),
                   },
-                  '&::before': card.highlight ? {
-                    content: '""',
-                    position: 'absolute',
-                    top: -1,
-                    left: -1,
-                    right: -1,
-                    bottom: -1,
-                    background: `linear-gradient(135deg, ${card.color}, ${alpha(card.color, 0.6)})`,
-                    borderRadius: 'inherit',
-                    zIndex: -1,
-                    opacity: 0.1
-                  } : {}
                 }}
                 onClick={() => navigate(card.path)}
               >
-                <CardContent sx={{ position: 'relative' }}>
-                  {card.highlight && (
-                    <Chip
-                      icon={<NotificationsActive sx={{ fontSize: 16 }} />}
-                      label='Needs Attention'
-                      size='small'
-                      sx={{
-                        position: 'absolute',
-                        top: 12,
-                        right: 12,
-                        backgroundColor: card.color,
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: '0.7rem',
-                        animation: 'pulse 2s ease-in-out infinite',
-                        '@keyframes pulse': {
-                          '0%, 100%': { opacity: 1 },
-                          '50%': { opacity: 0.7 }
-                        }
-                      }}
-                    />
-                  )}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mt: card.highlight ? 2 : 0 }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant='body2' color='text.secondary' gutterBottom fontWeight={500}>
+                {card.highlight && (
+                  <Box sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    background: card.gradient,
+                  }} />
+                )}
+                <CardContent sx={{ p: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Box>
+                      <Typography sx={{
+                        fontSize: '0.8rem',
+                        fontWeight: 500,
+                        color: '#6B7280',
+                        mb: 1,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.03em',
+                      }}>
                         {card.title}
                       </Typography>
-                      <Typography variant='h3' fontWeight='bold' sx={{
-                        background: card.highlight
-                          ? `linear-gradient(135deg, ${card.color} 0%, ${alpha(card.color, 0.7)} 100%)`
-                          : 'inherit',
-                        WebkitBackgroundClip: card.highlight ? 'text' : 'unset',
-                        WebkitTextFillColor: card.highlight ? 'transparent' : 'inherit',
-                        mb: 0.5
+                      <Typography sx={{
+                        fontSize: '2rem',
+                        fontWeight: 700,
+                        color: '#111827',
+                        lineHeight: 1,
                       }}>
                         {card.value}
                       </Typography>
                     </Box>
-                    <Box
-                      sx={{
-                        background: `linear-gradient(135deg, ${card.color} 0%, ${alpha(card.color, 0.8)} 100%)`,
-                        borderRadius: 3,
-                        p: 1.5,
-                        color: 'white',
-                        boxShadow: `0 4px 12px ${alpha(card.color, 0.3)}`
-                      }}
-                    >
+                    <Box sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 2.5,
+                      background: card.lightBg,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: card.iconColor,
+                      '& .MuiSvgIcon-root': { fontSize: 24 },
+                    }}>
                       {card.icon}
                     </Box>
                   </Box>
                   <Box sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    mt: 2.5,
-                    color: card.color,
-                    opacity: 0.8,
-                    transition: 'opacity 0.2s',
-                    '&:hover': { opacity: 1 }
+                    mt: 2,
+                    color: card.iconColor,
                   }}>
-                    <Typography variant='body2' fontWeight={600}>
+                    <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
                       View Details
                     </Typography>
-                    <ArrowForward sx={{ fontSize: 18, ml: 0.5 }} />
+                    <ArrowForward sx={{ fontSize: 14, ml: 0.5 }} />
                   </Box>
                 </CardContent>
               </Card>
@@ -196,35 +206,39 @@ const Dashboard: React.FC = () => {
           ))}
         </Grid>
 
-        <Grid container spacing={3} sx={{ mt: 2 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
+        <Grid container spacing={2.5} sx={{ mt: 1 }}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Paper
-              elevation={2}
+              elevation={0}
               sx={{
                 p: 3,
-                background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
                 border: '1px solid',
-                borderColor: 'divider'
+                borderColor: alpha('#000', 0.06),
+                borderRadius: 3,
+                height: '100%',
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <Box
-                  sx={{
-                    background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                    borderRadius: 2,
-                    p: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    mr: 1.5,
-                    boxShadow: `0 4px 12px ${alpha('#4CAF50', 0.3)}`
-                  }}
-                >
-                  <TrendingUp sx={{ color: 'white', fontSize: 24 }} />
+                <Box sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mr: 1.5,
+                }}>
+                  <TrendingUp sx={{ color: 'white', fontSize: 20 }} />
                 </Box>
-                <Typography variant='h6' fontWeight='bold'>
-                  Booking Statistics
-                </Typography>
+                <Box>
+                  <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#111827' }}>
+                    Booking Statistics
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>
+                    Recent booking activity
+                  </Typography>
+                </Box>
               </Box>
               {bookingStats.map((stat, index) => (
                 <Box
@@ -233,29 +247,39 @@ const Dashboard: React.FC = () => {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    py: 2.5,
+                    py: 2,
                     px: 2,
                     borderRadius: 2,
-                    backgroundColor: index % 2 === 0 ? alpha('#4CAF50', 0.05) : 'transparent',
+                    mb: index < bookingStats.length - 1 ? 1 : 0,
+                    backgroundColor: alpha('#10B981', 0.04),
                     transition: 'all 0.2s',
                     '&:hover': {
-                      backgroundColor: alpha('#4CAF50', 0.1),
-                      transform: 'translateX(4px)'
+                      backgroundColor: alpha('#10B981', 0.08),
                     }
                   }}
                 >
-                  <Typography variant='body1' color='text.secondary' fontWeight={500}>
-                    {stat.label}
-                  </Typography>
-                  <Typography
-                    variant='h5'
-                    fontWeight='bold'
-                    sx={{
-                      background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent'
-                    }}
-                  >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 1.5,
+                      backgroundColor: alpha('#10B981', 0.1),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#10B981',
+                    }}>
+                      {stat.icon}
+                    </Box>
+                    <Typography sx={{ fontSize: '0.9rem', fontWeight: 500, color: '#374151' }}>
+                      {stat.label}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{
+                    fontSize: '1.5rem',
+                    fontWeight: 700,
+                    color: '#10B981',
+                  }}>
                     {stat.value}
                   </Typography>
                 </Box>
@@ -263,79 +287,53 @@ const Dashboard: React.FC = () => {
             </Paper>
           </Grid>
 
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Paper
-              elevation={2}
+              elevation={0}
               sx={{
                 p: 3,
-                background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
                 border: '1px solid',
-                borderColor: 'divider'
+                borderColor: alpha('#000', 0.06),
+                borderRadius: 3,
+                height: '100%',
               }}
             >
-              <Typography variant='h6' fontWeight='bold' gutterBottom>
+              <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#111827', mb: 0.5 }}>
                 Quick Actions
               </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 3 }}>
-                {stats.pendingFarmhouses > 0 && (
+              <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF', mb: 2.5 }}>
+                Common tasks and shortcuts
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {quickActions.map((action, index) => (
                   <Box
-                    onClick={() => navigate('/farmhouse-approvals')}
+                    key={index}
+                    onClick={() => navigate(action.path)}
                     sx={{
-                      p: 2.5,
-                      background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
+                      p: 2,
+                      backgroundColor: action.bg,
                       borderRadius: 2,
                       cursor: 'pointer',
-                      border: '2px solid #ffb74d',
-                      transition: 'all 0.3s',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                       '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: `0 8px 16px ${alpha('#FF9800', 0.2)}`
+                        transform: 'translateX(4px)',
+                        backgroundColor: alpha(action.color, 0.12),
                       }
                     }}
                   >
-                    <Typography variant='body1' fontWeight='600' color='#f57c00'>
-                      {stats.pendingFarmhouses} farmhouse{stats.pendingFarmhouses > 1 ? 's' : ''} waiting for approval
+                    <Typography sx={{
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      color: action.color,
+                    }}>
+                      {action.label}
                     </Typography>
+                    <ArrowForward sx={{ fontSize: 16, color: action.color, opacity: 0.6 }} />
                   </Box>
-                )}
-                <Box
-                  onClick={() => navigate('/coupons')}
-                  sx={{
-                    p: 2.5,
-                    background: 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)',
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    border: '2px solid #ce93d8',
-                    transition: 'all 0.3s',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 8px 16px ${alpha('#9C27B0', 0.2)}`
-                    }
-                  }}
-                >
-                  <Typography variant='body1' fontWeight='600' color='#8e24aa'>
-                    Create New Coupon
-                  </Typography>
-                </Box>
-                <Box
-                  onClick={() => navigate('/bookings')}
-                  sx={{
-                    p: 2.5,
-                    background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    border: '2px solid #81c784',
-                    transition: 'all 0.3s',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 8px 16px ${alpha('#4CAF50', 0.2)}`
-                    }
-                  }}
-                >
-                  <Typography variant='body1' fontWeight='600' color='#388e3c'>
-                    View All Bookings
-                  </Typography>
-                </Box>
+                ))}
               </Box>
             </Paper>
           </Grid>

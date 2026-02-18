@@ -33,7 +33,8 @@ import {
   Visibility,
   Delete,
   Block,
-  CheckCircle
+  CheckCircle,
+  SearchOutlined
 } from '@mui/icons-material';
 import { collection, getDocs, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -243,14 +244,29 @@ const UsersManagement: React.FC = () => {
     }
   };
 
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return { bg: '#FEF2F2', color: '#DC2626' };
+      case 'owner': return { bg: '#EFF6FF', color: '#2563EB' };
+      default: return { bg: '#F3F4F6', color: '#6B7280' };
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const getAvatarColor = (name: string) => {
+    const colors = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899'];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
+  };
+
   if (loading) {
     return (
       <MainLayout>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <CircularProgress size={60} />
-            <Typography sx={{ mt: 2 }}>Loading users...</Typography>
-          </Box>
+          <CircularProgress size={48} sx={{ color: '#10B981' }} />
         </Box>
       </MainLayout>
     );
@@ -260,51 +276,90 @@ const UsersManagement: React.FC = () => {
     <MainLayout>
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant='h4' fontWeight='bold' gutterBottom>
-              Users Management
-            </Typography>
-            <Typography variant='body2' color='text.secondary'>
-              Total Users: {users.length} | Showing: {filtered.length}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Chip
+              label={`${users.length} total`}
+              size='small'
+              sx={{ backgroundColor: '#F3F4F6', color: '#6B7280', fontWeight: 600, fontSize: '0.75rem' }}
+            />
+            {filtered.length !== users.length && (
+              <Chip
+                label={`${filtered.length} shown`}
+                size='small'
+                sx={{ backgroundColor: '#EFF6FF', color: '#3B82F6', fontWeight: 600, fontSize: '0.75rem' }}
+              />
+            )}
           </Box>
           <Button
             variant='contained'
             startIcon={<Add />}
             onClick={openCreateDialog}
-            size='large'
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              borderRadius: 2,
+              px: 3,
+              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+              boxShadow: 'none',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+              },
+            }}
           >
             Add User
           </Button>
         </Box>
 
         {error && users.length === 0 && (
-          <Alert severity='info' sx={{ mb: 3 }}>
+          <Alert severity='info' sx={{ mb: 3, borderRadius: 2 }}>
             {error}
           </Alert>
         )}
 
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden', mb: 3 }}>
+          <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <TextField
-              fullWidth
-              placeholder='Search by name, email or phone...'
+              placeholder='Search users...'
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              size='small'
+              InputProps={{
+                startAdornment: <SearchOutlined sx={{ color: '#9CA3AF', mr: 1, fontSize: 20 }} />,
+              }}
+              sx={{
+                flex: 1,
+                minWidth: 200,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  backgroundColor: '#F9FAFB',
+                  '& fieldset': { borderColor: 'transparent' },
+                  '&:hover fieldset': { borderColor: '#E5E7EB' },
+                  '&.Mui-focused fieldset': { borderColor: '#10B981' },
+                },
+              }}
             />
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
-              <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-                <MenuItem value='all'>All Roles ({users.length})</MenuItem>
+            <FormControl size='small' sx={{ minWidth: 160 }}>
+              <Select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                displayEmpty
+                sx={{
+                  borderRadius: 2,
+                  backgroundColor: '#F9FAFB',
+                  '& fieldset': { borderColor: 'transparent' },
+                  '&:hover fieldset': { borderColor: '#E5E7EB' },
+                  '&.Mui-focused fieldset': { borderColor: '#10B981' },
+                }}
+              >
+                <MenuItem value='all'>All Roles</MenuItem>
                 <MenuItem value='user'>Users ({users.filter(u => u.role === 'user').length})</MenuItem>
                 <MenuItem value='owner'>Owners ({users.filter(u => u.role === 'owner').length})</MenuItem>
                 <MenuItem value='admin'>Admins ({users.filter(u => u.role === 'admin').length})</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-        </Grid>
+          </Box>
+        </Paper>
 
         {filtered.length === 0 ? (
           <EmptyState
@@ -315,94 +370,103 @@ const UsersManagement: React.FC = () => {
             onAction={users.length === 0 ? openCreateDialog : undefined}
           />
         ) : (
-          <TableContainer component={Paper}>
+          <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                  <TableCell><strong>Name</strong></TableCell>
-                  <TableCell><strong>Email</strong></TableCell>
-                  <TableCell><strong>Phone</strong></TableCell>
-                  <TableCell><strong>Role</strong></TableCell>
-                  <TableCell><strong>KYC Status</strong></TableCell>
-                  <TableCell><strong>Status</strong></TableCell>
-                  <TableCell><strong>Joined</strong></TableCell>
-                  <TableCell align='center'><strong>Actions</strong></TableCell>
+                <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
+                  <TableCell>User</TableCell>
+                  <TableCell>Phone</TableCell>
+                  <TableCell>Role</TableCell>
+                  <TableCell>KYC</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Joined</TableCell>
+                  <TableCell align='center'>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map((user) => (
-                  <TableRow key={user.user_id} hover>
-                    <TableCell>
-                      <Typography fontWeight='bold'>{user.name}</Typography>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.phone || '-'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.role}
-                        size='small'
-                        color={
-                          user.role === 'admin' ? 'error' :
-                          user.role === 'owner' ? 'primary' :
-                          'default'
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {user.kyc_status ? (
+                {filtered.map((user) => {
+                  const roleStyle = getRoleColor(user.role);
+                  return (
+                    <TableRow key={user.user_id} hover sx={{ '&:hover': { backgroundColor: '#FAFAFA' }, '& td': { borderBottom: '1px solid #F3F4F6', py: 1.5 } }}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box sx={{
+                            width: 36, height: 36, borderRadius: '50%',
+                            background: `linear-gradient(135deg, ${getAvatarColor(user.name)} 0%, ${getAvatarColor(user.name)}CC 100%)`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0,
+                          }}>
+                            {getInitials(user.name)}
+                          </Box>
+                          <Box>
+                            <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#111827' }}>{user.name}</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>{user.email}</Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ fontSize: '0.85rem', color: '#6B7280' }}>{user.phone || '-'}</Typography>
+                      </TableCell>
+                      <TableCell>
                         <Chip
-                          label={user.kyc_status}
+                          label={user.role}
                           size='small'
-                          color={
-                            user.kyc_status === 'approved' ? 'success' :
-                            user.kyc_status === 'rejected' ? 'error' :
-                            'warning'
-                          }
+                          sx={{ backgroundColor: roleStyle.bg, color: roleStyle.color, fontWeight: 600, fontSize: '0.7rem', textTransform: 'capitalize' }}
                         />
-                      ) : (
-                        <Chip label='N/A' size='small' variant='outlined' />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.is_active ? 'Active' : 'Inactive'}
-                        size='small'
-                        color={user.is_active ? 'success' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {formatDate(user.created_at)}
-                    </TableCell>
-                    <TableCell align='center'>
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                        <Tooltip title='View Details'>
-                          <IconButton size='small' onClick={() => openViewDialog(user)}>
-                            <Visibility fontSize='small' />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title='Edit User'>
-                          <IconButton size='small' color='primary' onClick={() => openEditDialog(user)}>
-                            <Edit fontSize='small' />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={user.is_active ? 'Deactivate' : 'Activate'}>
-                          <IconButton
+                      </TableCell>
+                      <TableCell>
+                        {user.kyc_status ? (
+                          <Chip
+                            label={user.kyc_status}
                             size='small'
-                            color={user.is_active ? 'warning' : 'success'}
-                            onClick={() => handleToggleStatus(user)}
-                          >
-                            {user.is_active ? <Block fontSize='small' /> : <CheckCircle fontSize='small' />}
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title='Delete User'>
-                          <IconButton size='small' color='error' onClick={() => openDeleteDialog(user)}>
-                            <Delete fontSize='small' />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                            sx={{
+                              backgroundColor: user.kyc_status === 'approved' ? '#ECFDF5' : user.kyc_status === 'rejected' ? '#FEF2F2' : '#FFFBEB',
+                              color: user.kyc_status === 'approved' ? '#059669' : user.kyc_status === 'rejected' ? '#DC2626' : '#D97706',
+                              fontWeight: 600, fontSize: '0.7rem', textTransform: 'capitalize',
+                            }}
+                          />
+                        ) : (
+                          <Typography sx={{ fontSize: '0.8rem', color: '#D1D5DB' }}>—</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: user.is_active ? '#10B981' : '#D1D5DB' }} />
+                          <Typography sx={{ fontSize: '0.8rem', color: user.is_active ? '#059669' : '#9CA3AF', fontWeight: 500 }}>
+                            {user.is_active ? 'Active' : 'Inactive'}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ fontSize: '0.8rem', color: '#9CA3AF' }}>{formatDate(user.created_at)}</Typography>
+                      </TableCell>
+                      <TableCell align='center'>
+                        <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+                          <Tooltip title='View'>
+                            <IconButton size='small' onClick={() => openViewDialog(user)} sx={{ color: '#9CA3AF', '&:hover': { color: '#6B7280', backgroundColor: '#F3F4F6' } }}>
+                              <Visibility sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title='Edit'>
+                            <IconButton size='small' onClick={() => openEditDialog(user)} sx={{ color: '#9CA3AF', '&:hover': { color: '#3B82F6', backgroundColor: '#EFF6FF' } }}>
+                              <Edit sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={user.is_active ? 'Deactivate' : 'Activate'}>
+                            <IconButton size='small' onClick={() => handleToggleStatus(user)} sx={{ color: '#9CA3AF', '&:hover': { color: user.is_active ? '#F59E0B' : '#10B981', backgroundColor: user.is_active ? '#FFFBEB' : '#ECFDF5' } }}>
+                              {user.is_active ? <Block sx={{ fontSize: 18 }} /> : <CheckCircle sx={{ fontSize: 18 }} />}
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title='Delete'>
+                            <IconButton size='small' onClick={() => openDeleteDialog(user)} sx={{ color: '#9CA3AF', '&:hover': { color: '#EF4444', backgroundColor: '#FEF2F2' } }}>
+                              <Delete sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
@@ -419,20 +483,19 @@ const UsersManagement: React.FC = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete User</DialogTitle>
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} PaperProps={{ sx: { borderRadius: 3, maxWidth: 420 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem' }}>Delete User</DialogTitle>
         <DialogContent>
-          <DialogContentText>
+          <DialogContentText sx={{ fontSize: '0.9rem' }}>
             Are you sure you want to delete <strong>{userToDelete?.name}</strong>? This action cannot be undone.
-            <br /><br />
-            <Alert severity='warning'>
-              Consider deactivating the user instead of deleting to preserve historical data.
-            </Alert>
           </DialogContentText>
+          <Alert severity='warning' sx={{ mt: 2, borderRadius: 2 }}>
+            Consider deactivating the user instead of deleting to preserve historical data.
+          </Alert>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteUser} color='error' variant='contained'>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ textTransform: 'none', fontWeight: 600, color: '#6B7280' }}>Cancel</Button>
+          <Button onClick={handleDeleteUser} variant='contained' sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2, backgroundColor: '#EF4444', '&:hover': { backgroundColor: '#DC2626' } }}>
             Delete
           </Button>
         </DialogActions>
