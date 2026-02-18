@@ -12,14 +12,12 @@ import {
   useTheme,
   useMediaQuery,
   alpha,
-  Chip,
   Divider
 } from '@mui/material';
 import {
   Logout,
   Menu as MenuIcon,
   NotificationsNoneOutlined,
-  PersonOutline,
   SearchOutlined
 } from '@mui/icons-material';
 

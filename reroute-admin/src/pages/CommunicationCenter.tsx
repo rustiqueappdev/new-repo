@@ -19,9 +19,7 @@ import {
   Chip,
   CircularProgress,
   Card,
-  CardContent,
   CardActionArea,
-  Alert,
   InputAdornment
 } from '@mui/material';
 import { Send, Search, Group, Store, Person } from '@mui/icons-material';

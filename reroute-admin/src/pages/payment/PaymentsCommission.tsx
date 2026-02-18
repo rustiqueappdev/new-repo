@@ -18,7 +18,6 @@ import {
   Tabs,
   Tab,
   IconButton,
-  Avatar,
   Tooltip,
   Dialog,
   DialogTitle,
