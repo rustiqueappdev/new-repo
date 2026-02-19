@@ -22,7 +22,9 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import { 
   TrendingUp, 
@@ -32,7 +34,8 @@ import {
   PersonOutline,
   HomeOutlined,
   Visibility,
-  Download
+  Download,
+  SearchOutlined
 } from '@mui/icons-material';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -68,6 +71,7 @@ const PaymentsCommission: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<FirebaseBooking | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalCommission: 0,
@@ -177,7 +181,14 @@ const PaymentsCommission: React.FC = () => {
   };
 
   const getFilteredBookings = () => {
-    const paidBookings = bookings.filter(b => b.paymentStatus === 'paid');
+    let paidBookings = bookings.filter(b => b.paymentStatus === 'paid');
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase();
+      paidBookings = paidBookings.filter(b =>
+        (b.farmhouseName || '').toLowerCase().includes(term)
+      );
+    }
     
     switch (activeTab) {
       case 0: // All
@@ -189,6 +200,17 @@ const PaymentsCommission: React.FC = () => {
       default:
         return paidBookings;
     }
+  };
+
+  const getSearchedPaidBookings = () => {
+    let paidBookings = bookings.filter(b => b.paymentStatus === 'paid');
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase();
+      paidBookings = paidBookings.filter(b =>
+        (b.farmhouseName || '').toLowerCase().includes(term)
+      );
+    }
+    return paidBookings;
   };
 
   const filteredBookings = getFilteredBookings();
@@ -287,9 +309,49 @@ const PaymentsCommission: React.FC = () => {
           ))}
         </Grid>
 
-        {/* Tabs & Export */}
+        {/* Search & Filters */}
         <Paper elevation={0} sx={{ mb: 3, border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
+          <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <TextField
+              size='small'
+              placeholder='Search by farmhouse name...'
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{ minWidth: 280, '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: '0.875rem' } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position='start'>
+                    <SearchOutlined sx={{ fontSize: 20, color: '#9CA3AF' }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Box sx={{ flex: 1 }} />
+            <Button
+              variant='outlined'
+              startIcon={<Download sx={{ fontSize: 18 }} />}
+              onClick={handleExportCSV}
+              disabled={filteredBookings.length === 0}
+              size='small'
+              sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2, borderColor: '#E5E7EB', color: '#6B7280', '&:hover': { borderColor: '#10B981', color: '#10B981' } }}
+            >
+              Export CSV
+            </Button>
+          </Box>
+
+          {searchTerm.trim() && (() => {
+            const searched = getSearchedPaidBookings();
+            const pendingAmt = searched.filter(b => !b.commission_paid_to_owner).reduce((s, b) => s + ((b.totalPrice || 0) * (1 - (b.commission_percentage || 10) / 100)), 0);
+            const paidAmt = searched.filter(b => b.commission_paid_to_owner).reduce((s, b) => s + ((b.totalPrice || 0) * (1 - (b.commission_percentage || 10) / 100)), 0);
+            return searched.length > 0 ? (
+              <Box sx={{ px: 2, pb: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Chip label={`${searched.length} bookings found`} size='small' color='primary' variant='outlined' />
+                <Chip label={`Pending: ₹${pendingAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} size='small' sx={{ bgcolor: '#FEF3C7', color: '#92400E' }} />
+                <Chip label={`Paid: ₹${paidAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} size='small' sx={{ bgcolor: '#D1FAE5', color: '#065F46' }} />
+              </Box>
+            ) : null;
+          })()}
+
           <Tabs 
             value={activeTab} 
             onChange={(_, v) => setActiveTab(v)}
@@ -299,21 +361,10 @@ const PaymentsCommission: React.FC = () => {
               '& .MuiTabs-indicator': { backgroundColor: '#10B981' },
             }}
           >
-            <Tab label={`All (${bookings.filter(b => b.paymentStatus === 'paid').length})`} />
-            <Tab label={`Pending (${bookings.filter(b => b.paymentStatus === 'paid' && !b.commission_paid_to_owner).length})`} />
-            <Tab label={`Paid (${bookings.filter(b => b.paymentStatus === 'paid' && b.commission_paid_to_owner).length})`} />
+            <Tab label={`All (${getSearchedPaidBookings().length})`} />
+            <Tab label={`Pending (${getSearchedPaidBookings().filter(b => !b.commission_paid_to_owner).length})`} />
+            <Tab label={`Paid (${getSearchedPaidBookings().filter(b => b.commission_paid_to_owner).length})`} />
           </Tabs>
-          <Button
-            variant='outlined'
-            startIcon={<Download sx={{ fontSize: 18 }} />}
-            onClick={handleExportCSV}
-            disabled={filteredBookings.length === 0}
-            size='small'
-            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2, borderColor: '#E5E7EB', color: '#6B7280', '&:hover': { borderColor: '#10B981', color: '#10B981' } }}
-          >
-            Export CSV
-          </Button>
-          </Box>
         </Paper>
 
         {/* Table */}
