@@ -31,7 +31,8 @@ import {
   CheckCircle,
   PersonOutline,
   HomeOutlined,
-  Visibility
+  Visibility,
+  Download
 } from '@mui/icons-material';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -192,6 +193,54 @@ const PaymentsCommission: React.FC = () => {
 
   const filteredBookings = getFilteredBookings();
 
+  const handleExportCSV = () => {
+    if (filteredBookings.length === 0) {
+      showError('No payments to export');
+      return;
+    }
+
+    const headers = [
+      'Booking ID', 'User', 'Email', 'Farmhouse', 'Check-in', 'Check-out',
+      'Total Amount', 'Commission %', 'Commission Amount', 'Owner Payout', 'Status'
+    ];
+
+    const csvData = filteredBookings.map(b => {
+      const commPct = b.commission_percentage || 10;
+      const commAmt = ((b.totalPrice || 0) * commPct / 100).toFixed(2);
+      const ownerPayout = ((b.totalPrice || 0) * (1 - commPct / 100)).toFixed(2);
+      return [
+        b.booking_id || '',
+        b.userName || '',
+        b.userEmail || '',
+        b.farmhouseName || '',
+        b.checkInDate || '',
+        b.checkOutDate || '',
+        (b.totalPrice || 0).toString(),
+        commPct.toString(),
+        commAmt,
+        ownerPayout,
+        b.commission_paid_to_owner ? 'Paid' : 'Pending'
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `payments_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showSuccess(`Exported ${filteredBookings.length} payments to CSV`);
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -238,8 +287,9 @@ const PaymentsCommission: React.FC = () => {
           ))}
         </Grid>
 
-        {/* Tabs */}
+        {/* Tabs & Export */}
         <Paper elevation={0} sx={{ mb: 3, border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
           <Tabs 
             value={activeTab} 
             onChange={(_, v) => setActiveTab(v)}
@@ -253,6 +303,17 @@ const PaymentsCommission: React.FC = () => {
             <Tab label={`Pending (${bookings.filter(b => b.paymentStatus === 'paid' && !b.commission_paid_to_owner).length})`} />
             <Tab label={`Paid (${bookings.filter(b => b.paymentStatus === 'paid' && b.commission_paid_to_owner).length})`} />
           </Tabs>
+          <Button
+            variant='outlined'
+            startIcon={<Download sx={{ fontSize: 18 }} />}
+            onClick={handleExportCSV}
+            disabled={filteredBookings.length === 0}
+            size='small'
+            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2, borderColor: '#E5E7EB', color: '#6B7280', '&:hover': { borderColor: '#10B981', color: '#10B981' } }}
+          >
+            Export CSV
+          </Button>
+          </Box>
         </Paper>
 
         {/* Table */}
