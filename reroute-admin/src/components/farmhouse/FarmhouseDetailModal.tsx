@@ -439,31 +439,6 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                           </Typography>
                           <Typography variant='body2'>Name: {farmhouse.kyc.person1.name}</Typography>
                           <Typography variant='body2'>Phone: {farmhouse.kyc.person1.phone}</Typography>
-                          <Typography variant='body2'>Aadhaar: {farmhouse.kyc.person1.aadhaarNumber}</Typography>
-                          {farmhouse.kyc.person1.aadhaarFrontUrl && (
-                            <Button
-                              variant='contained'
-                              size='small'
-                              href={farmhouse.kyc.person1.aadhaarFrontUrl}
-                              target='_blank'
-                              sx={{ mt: 2 }}
-                              fullWidth
-                            >
-                              View Aadhaar Front
-                            </Button>
-                          )}
-                          {farmhouse.kyc.person1.aadhaarBackUrl && (
-                            <Button
-                              variant='outlined'
-                              size='small'
-                              href={farmhouse.kyc.person1.aadhaarBackUrl}
-                              target='_blank'
-                              sx={{ mt: 1 }}
-                              fullWidth
-                            >
-                              View Aadhaar Back
-                            </Button>
-                          )}
                         </Paper>
                       </Grid>
 
@@ -475,21 +450,6 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                             </Typography>
                             <Typography variant='body2'>Name: {farmhouse.kyc.person2.name}</Typography>
                             <Typography variant='body2'>Phone: {farmhouse.kyc.person2.phone}</Typography>
-                            {farmhouse.kyc.person2.aadhaarNumber && (
-                              <Typography variant='body2'>Aadhaar: {farmhouse.kyc.person2.aadhaarNumber}</Typography>
-                            )}
-                            {farmhouse.kyc.person2.aadhaarFrontUrl && (
-                              <Button
-                                variant='contained'
-                                size='small'
-                                href={farmhouse.kyc.person2.aadhaarFrontUrl}
-                                target='_blank'
-                                sx={{ mt: 2 }}
-                                fullWidth
-                              >
-                                View Aadhaar Front
-                              </Button>
-                            )}
                           </Paper>
                         </Grid>
                       )}
@@ -598,7 +558,7 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                             onChange={() => handleChecklistChange('documentsVerified')}
                           />
                         }
-                        label='All KYC documents verified (Aadhaar, PAN, Licence)'
+                        label='All KYC documents verified (PAN, Licence)'
                       />
                       <FormControlLabel
                         control={

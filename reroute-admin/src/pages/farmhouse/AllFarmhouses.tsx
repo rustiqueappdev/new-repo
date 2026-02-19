@@ -111,16 +111,10 @@ interface FarmhouseData {
     person1?: {
       name?: string;
       phone?: string;
-      aadhaarNumber?: string;
-      aadhaarFrontUrl?: string | null;
-      aadhaarBackUrl?: string | null;
     };
     person2?: {
       name?: string | null;
       phone?: string | null;
-      aadhaarNumber?: string | null;
-      aadhaarFrontUrl?: string | null;
-      aadhaarBackUrl?: string | null;
     };
     bankDetails?: {
       accountNumber?: string;
@@ -1096,22 +1090,6 @@ const AllFarmhouses: React.FC = () => {
                               <Typography variant='caption' color='text.secondary'>Phone</Typography>
                               <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person1?.phone || 'N/A'}</Typography>
                             </Box>
-                            <Box>
-                              <Typography variant='caption' color='text.secondary'>Aadhaar Number</Typography>
-                              <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person1?.aadhaarNumber || 'N/A'}</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                              {selectedFarmhouse.kyc.person1?.aadhaarFrontUrl && (
-                                <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.person1.aadhaarFrontUrl} target='_blank' startIcon={<Visibility />}>
-                                  Aadhaar Front
-                                </Button>
-                              )}
-                              {selectedFarmhouse.kyc.person1?.aadhaarBackUrl && (
-                                <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.person1.aadhaarBackUrl} target='_blank' startIcon={<Visibility />}>
-                                  Aadhaar Back
-                                </Button>
-                              )}
-                            </Box>
                           </Box>
                         </Paper>
                       </Grid>
@@ -1131,22 +1109,6 @@ const AllFarmhouses: React.FC = () => {
                               <Box>
                                 <Typography variant='caption' color='text.secondary'>Phone</Typography>
                                 <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person2.phone || 'N/A'}</Typography>
-                              </Box>
-                              <Box>
-                                <Typography variant='caption' color='text.secondary'>Aadhaar Number</Typography>
-                                <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person2.aadhaarNumber || 'N/A'}</Typography>
-                              </Box>
-                              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                {selectedFarmhouse.kyc.person2.aadhaarFrontUrl && (
-                                  <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.person2.aadhaarFrontUrl} target='_blank' startIcon={<Visibility />}>
-                                    Aadhaar Front
-                                  </Button>
-                                )}
-                                {selectedFarmhouse.kyc.person2.aadhaarBackUrl && (
-                                  <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.person2.aadhaarBackUrl} target='_blank' startIcon={<Visibility />}>
-                                    Aadhaar Back
-                                  </Button>
-                                )}
                               </Box>
                             </Box>
                           ) : (
