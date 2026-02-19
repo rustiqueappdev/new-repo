@@ -33,7 +33,6 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/farmhouses': { title: 'All Farmhouses', subtitle: 'Manage property listings' },
   '/bookings': { title: 'Bookings', subtitle: 'Track reservations' },
   '/users': { title: 'Users', subtitle: 'Manage platform users' },
-  '/kyc': { title: 'Owner KYC', subtitle: 'Verify owner documents' },
   '/coupons': { title: 'Coupons', subtitle: 'Manage discount codes' },
   '/payments': { title: 'Payments', subtitle: 'Track revenue & payouts' },
   '/revenue': { title: 'Revenue', subtitle: 'Financial analytics' },

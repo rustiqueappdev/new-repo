@@ -38,9 +38,31 @@ const Login: React.FC = () => {
       await login(email, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Failed to login');
+      setError(getFriendlyError(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getFriendlyError = (err: any): string => {
+    const code = err?.code || '';
+    switch (code) {
+      case 'auth/invalid-email':
+        return 'Please enter a valid email address.';
+      case 'auth/user-disabled':
+        return 'This account has been disabled. Contact support.';
+      case 'auth/user-not-found':
+        return 'Incorrect email or password. Please try again.';
+      case 'auth/wrong-password':
+        return 'Incorrect email or password. Please try again.';
+      case 'auth/invalid-credential':
+        return 'Incorrect email or password. Please try again.';
+      case 'auth/too-many-requests':
+        return 'Too many failed attempts. Please wait a moment and try again.';
+      case 'auth/network-request-failed':
+        return 'Network error. Please check your internet connection.';
+      default:
+        return 'Something went wrong. Please try again later.';
     }
   };
 
@@ -256,6 +278,12 @@ const Login: React.FC = () => {
                   color: alpha('#fff', 0.4),
                   opacity: 1,
                 },
+                '& .MuiInputBase-input:-webkit-autofill': {
+                  WebkitBoxShadow: '0 0 0 100px #1a2332 inset',
+                  WebkitTextFillColor: '#fff',
+                  caretColor: '#fff',
+                  borderRadius: 'inherit',
+                },
               }}
             />
             
@@ -305,6 +333,12 @@ const Login: React.FC = () => {
                 '& .MuiInputBase-input::placeholder': {
                   color: alpha('#fff', 0.4),
                   opacity: 1,
+                },
+                '& .MuiInputBase-input:-webkit-autofill': {
+                  WebkitBoxShadow: '0 0 0 100px #1a2332 inset',
+                  WebkitTextFillColor: '#fff',
+                  caretColor: '#fff',
+                  borderRadius: 'inherit',
                 },
               }}
             />

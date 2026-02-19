@@ -26,7 +26,6 @@ import {
   BarChart,
   Star,
   Email,
-  VerifiedUser,
   Landscape
 } from '@mui/icons-material';
 import { usePendingCount } from '../../context/PendingCountContext';
@@ -39,7 +38,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onDrawerToggle }) => {
-  const { pendingFarmhouses, pendingKYC } = usePendingCount();
+  const { pendingFarmhouses } = usePendingCount();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -64,7 +63,6 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onDrawerToggle }) => {
       items: [
         { text: 'Bookings', icon: <BookOnline />, path: '/bookings' },
         { text: 'Users', icon: <People />, path: '/users' },
-        { text: 'Owner KYC', icon: <VerifiedUser />, path: '/kyc', badge: pendingKYC },
         { text: 'Reviews', icon: <Star />, path: '/reviews' },
       ]
     },
