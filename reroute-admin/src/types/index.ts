@@ -13,10 +13,8 @@ export interface User {
 export interface OwnerKYC {
   person1_name: string;
   person1_phone: string;
-  person1_aadhaar_url: string;
   person2_name: string;
   person2_phone: string;
-  person2_aadhaar_url: string;
   company_pan_url: string;
   labour_licence_url: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -84,16 +82,10 @@ export interface Farmhouse {
     person1: {
       name: string;
       phone: string;
-      aadhaarNumber: string;
-      aadhaarFrontUrl: string | null;
-      aadhaarBackUrl: string | null;
     };
     person2: {
       name: string | null;
       phone: string | null;
-      aadhaarNumber: string | null;
-      aadhaarFrontUrl: string | null;
-      aadhaarBackUrl: string | null;
     };
     bankDetails: {
       accountNumber: string;
