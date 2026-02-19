@@ -41,13 +41,17 @@ import {
   Phone,
   KingBed,
   Group,
-  AttachMoney
+  AttachMoney,
+  AccountBalance,
+  Badge,
+  Close
 } from '@mui/icons-material';
 import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { useAuth } from '../../context/AuthContext';
 import MainLayout from '../../components/layout/MainLayout';
+import { tryDecrypt } from '../../utils/decryption';
 import EmptyState from '../../components/common/EmptyState';
 
 interface FarmhouseData {
@@ -71,6 +75,14 @@ interface FarmhouseData {
     weeklyNight?: string;
     occasionalDay?: string;
     occasionalNight?: string;
+    customPricing?: Array<{
+      name?: string;
+      date?: string;
+      dayPrice?: string;
+      nightPrice?: string;
+      startDate?: string;
+      endDate?: string;
+    }>;
   };
   photoUrls?: string[];
   amenities?: Record<string, boolean> | string[];
@@ -91,6 +103,32 @@ interface FarmhouseData {
   ownerId?: string;
   created_at?: any;
   createdAt?: any;
+  kyc?: {
+    agreedToTerms?: boolean;
+    panNumber?: string;
+    companyPANUrl?: string | null;
+    labourDocUrl?: string | null;
+    person1?: {
+      name?: string;
+      phone?: string;
+      aadhaarNumber?: string;
+      aadhaarFrontUrl?: string | null;
+      aadhaarBackUrl?: string | null;
+    };
+    person2?: {
+      name?: string | null;
+      phone?: string | null;
+      aadhaarNumber?: string | null;
+      aadhaarFrontUrl?: string | null;
+      aadhaarBackUrl?: string | null;
+    };
+    bankDetails?: {
+      accountNumber?: string;
+      ifscCode?: string;
+      accountHolderName?: string;
+      branchName?: string;
+    };
+  };
 }
 
 const AllFarmhouses: React.FC = () => {
@@ -109,9 +147,7 @@ const AllFarmhouses: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [farmhouseToDelete, setFarmhouseToDelete] = useState<FarmhouseData | null>(null);
   const [editData, setEditData] = useState({
-    base_rate: 0,
     commission_percentage: 0,
-    max_guests: 0,
     status: 'approved'
   });
   const [createData, setCreateData] = useState({
@@ -183,9 +219,7 @@ const AllFarmhouses: React.FC = () => {
   const handleEdit = (farmhouse: FarmhouseData) => {
     setSelectedFarmhouse(farmhouse);
     setEditData({
-      base_rate: farmhouse.base_rate || farmhouse.baseRate || 0,
       commission_percentage: farmhouse.commission_percentage || farmhouse.commissionPercentage || 0,
-      max_guests: farmhouse.max_guests || farmhouse.maxGuests || 0,
       status: farmhouse.status || 'approved'
     });
     setEditModalOpen(true);
@@ -275,35 +309,40 @@ const AllFarmhouses: React.FC = () => {
     try {
       setSaving(true);
       await updateDoc(doc(db, 'farmhouses', selectedFarmhouse.farmhouse_id), {
-        base_rate: editData.base_rate,
-        baseRate: editData.base_rate,
         commission_percentage: editData.commission_percentage,
         commissionPercentage: editData.commission_percentage,
-        max_guests: editData.max_guests,
-        maxGuests: editData.max_guests,
         status: editData.status,
         updated_at: serverTimestamp()
       });
 
-      // Add audit trail
-      await addDoc(collection(db, 'audit_trail'), {
-        action: 'farmhouse_updated',
-        entity_type: 'farmhouse',
-        entity_id: selectedFarmhouse.farmhouse_id,
-        performed_by: currentUser?.email || 'admin',
-        details: {
-          farmhouse_name: getName(selectedFarmhouse),
-          changes: editData
-        },
-        timestamp: serverTimestamp()
-      });
-
+      // Update local state immediately
+      setFarmhouses(prev => prev.map(f =>
+        f.farmhouse_id === selectedFarmhouse.farmhouse_id
+          ? { ...f, commission_percentage: editData.commission_percentage, commissionPercentage: editData.commission_percentage, status: editData.status }
+          : f
+      ));
       setEditModalOpen(false);
-      fetchFarmhouses();
       showSuccess('Farmhouse updated successfully');
-    } catch (error) {
+
+      // Audit trail (non-blocking, don't fail the edit if this errors)
+      try {
+        await addDoc(collection(db, 'audit_trail'), {
+          action: 'farmhouse_updated',
+          entity_type: 'farmhouse',
+          entity_id: selectedFarmhouse.farmhouse_id,
+          performed_by: currentUser?.email || 'admin',
+          details: {
+            farmhouse_name: getName(selectedFarmhouse),
+            changes: editData
+          },
+          timestamp: serverTimestamp()
+        });
+      } catch (auditError) {
+        console.warn('Audit trail write failed (permission issue):', auditError);
+      }
+    } catch (error: any) {
       console.error('Error updating farmhouse:', error);
-      showError('Failed to update farmhouse');
+      showError('Failed to update farmhouse. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -320,23 +359,28 @@ const AllFarmhouses: React.FC = () => {
     try {
       await deleteDoc(doc(db, 'farmhouses', farmhouseToDelete.farmhouse_id));
 
-      // Add audit trail
-      await addDoc(collection(db, 'audit_trail'), {
-        action: 'farmhouse_deleted',
-        entity_type: 'farmhouse',
-        entity_id: farmhouseToDelete.farmhouse_id,
-        performed_by: currentUser?.email || 'admin',
-        details: {
-          farmhouse_name: getName(farmhouseToDelete),
-          location: getLocation(farmhouseToDelete)
-        },
-        timestamp: serverTimestamp()
-      });
-
-      fetchFarmhouses();
+      // Update local state immediately
+      setFarmhouses(prev => prev.filter(f => f.farmhouse_id !== farmhouseToDelete.farmhouse_id));
       setDeleteDialogOpen(false);
       setFarmhouseToDelete(null);
       showSuccess('Farmhouse deleted successfully');
+
+      // Audit trail (non-blocking)
+      try {
+        await addDoc(collection(db, 'audit_trail'), {
+          action: 'farmhouse_deleted',
+          entity_type: 'farmhouse',
+          entity_id: farmhouseToDelete.farmhouse_id,
+          performed_by: currentUser?.email || 'admin',
+          details: {
+            farmhouse_name: getName(farmhouseToDelete),
+            location: getLocation(farmhouseToDelete)
+          },
+          timestamp: serverTimestamp()
+        });
+      } catch (auditError) {
+        console.warn('Audit trail write failed (permission issue):', auditError);
+      }
     } catch (error) {
       console.error('Error deleting farmhouse:', error);
       showError('Failed to delete farmhouse');
@@ -710,10 +754,13 @@ const AllFarmhouses: React.FC = () => {
         maxWidth='lg'
         fullWidth
       >
-        <DialogTitle>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant='h6' fontWeight='bold'>
             Farmhouse Details
           </Typography>
+          <IconButton onClick={() => setDetailsModalOpen(false)} size='small'>
+            <Close />
+          </IconButton>
         </DialogTitle>
         <DialogContent>
           {selectedFarmhouse && (
@@ -723,6 +770,7 @@ const AllFarmhouses: React.FC = () => {
                 <Tab label='Images' />
                 <Tab label='Pricing' />
                 <Tab label='Amenities & Rules' />
+                <Tab label='KYC & Bank' />
               </Tabs>
 
               {detailsTab === 0 && (
@@ -797,15 +845,6 @@ const AllFarmhouses: React.FC = () => {
                         <Typography variant='caption' color='text.secondary'>Commission</Typography>
                       </Paper>
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                      <Paper sx={{ p: 2, textAlign: 'center', height: '100%' }}>
-                        <AttachMoney color='primary' sx={{ fontSize: 32, mb: 1 }} />
-                        <Typography variant='h6' fontWeight='bold'>
-                          ₹{getBaseRate(selectedFarmhouse).toLocaleString()}
-                        </Typography>
-                        <Typography variant='caption' color='text.secondary'>Base Rate/Night</Typography>
-                      </Paper>
-                    </Grid>
                   </Grid>
 
                   {/* Contact Information */}
@@ -865,11 +904,11 @@ const AllFarmhouses: React.FC = () => {
                       <Grid container spacing={2}>
                         {images.map((img, idx) => (
                           <Grid size={{ xs: 6, md: 4 }} key={idx}>
-                            <Paper sx={{ p: 1, height: 220, overflow: 'hidden', cursor: 'pointer' }}>
+                            <Paper sx={{ p: 1, overflow: 'hidden', cursor: 'pointer', '&:hover': { boxShadow: 4 }, transition: 'box-shadow 0.2s' }}>
                               <img
                                 src={img}
                                 alt={`Farmhouse ${idx + 1}`}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }}
+                                style={{ width: '100%', height: 'auto', maxHeight: 400, objectFit: 'contain', borderRadius: 4, display: 'block' }}
                                 onClick={() => window.open(img, '_blank')}
                               />
                             </Paper>
@@ -895,53 +934,81 @@ const AllFarmhouses: React.FC = () => {
               {detailsTab === 2 && (
                 <Box>
                   {selectedFarmhouse.pricing ? (
-                    <Grid container spacing={2}>
-                      <Grid size={{ xs: 12, md: 4 }}>
-                        <Paper sx={{ p: 3, bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.light' }}>
-                          <Typography variant='subtitle1' fontWeight='bold' color='primary.dark' gutterBottom>
-                            Weekend Pricing
+                    <>
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, md: 4 }}>
+                          <Paper sx={{ p: 3, bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.light' }}>
+                            <Typography variant='subtitle1' fontWeight='bold' color='primary.dark' gutterBottom>
+                              Weekend Pricing
+                            </Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                              <Typography variant='body2'>Day:</Typography>
+                              <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.weekendDay || 'N/A'}</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Typography variant='body2'>Night:</Typography>
+                              <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.weekendNight || 'N/A'}</Typography>
+                            </Box>
+                          </Paper>
+                        </Grid>
+                        <Grid size={{ xs: 12, md: 4 }}>
+                          <Paper sx={{ p: 3, bgcolor: 'success.50', border: '1px solid', borderColor: 'success.light' }}>
+                            <Typography variant='subtitle1' fontWeight='bold' color='success.dark' gutterBottom>
+                              Weekday Pricing
+                            </Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                              <Typography variant='body2'>Day:</Typography>
+                              <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.weeklyDay || 'N/A'}</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Typography variant='body2'>Night:</Typography>
+                              <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.weeklyNight || 'N/A'}</Typography>
+                            </Box>
+                          </Paper>
+                        </Grid>
+                        </Grid>
+
+                      {/* Custom/Special Day Pricing List */}
+                      {selectedFarmhouse.pricing.customPricing && selectedFarmhouse.pricing.customPricing.length > 0 && (
+                        <Paper sx={{ p: 3, mt: 2, border: '1px solid', borderColor: 'divider' }}>
+                          <Typography variant='subtitle1' fontWeight='bold' gutterBottom>
+                            Special Day Pricing
                           </Typography>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant='body2'>Day:</Typography>
-                            <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.weekendDay || 'N/A'}</Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant='body2'>Night:</Typography>
-                            <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.weekendNight || 'N/A'}</Typography>
-                          </Box>
+                          <TableContainer>
+                            <Table size='small'>
+                              <TableHead>
+                                <TableRow sx={{ '& th': { fontWeight: 600, color: '#6B7280', fontSize: '0.75rem', textTransform: 'uppercase' } }}>
+                                  <TableCell>Occasion</TableCell>
+                                  <TableCell>Date</TableCell>
+                                  <TableCell align='right'>Day Price</TableCell>
+                                  <TableCell align='right'>Night Price</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {selectedFarmhouse.pricing.customPricing.map((cp, idx) => (
+                                  <TableRow key={idx}>
+                                    <TableCell>
+                                      <Typography variant='body2' fontWeight={500}>{cp.name || 'Special Day'}</Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Typography variant='body2' color='text.secondary'>
+                                        {cp.date || (cp.startDate && cp.endDate ? `${cp.startDate} — ${cp.endDate}` : 'N/A')}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell align='right'>
+                                      <Typography variant='body2' fontWeight='bold'>₹{cp.dayPrice || 'N/A'}</Typography>
+                                    </TableCell>
+                                    <TableCell align='right'>
+                                      <Typography variant='body2' fontWeight='bold'>₹{cp.nightPrice || 'N/A'}</Typography>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
                         </Paper>
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 4 }}>
-                        <Paper sx={{ p: 3, bgcolor: 'success.50', border: '1px solid', borderColor: 'success.light' }}>
-                          <Typography variant='subtitle1' fontWeight='bold' color='success.dark' gutterBottom>
-                            Weekday Pricing
-                          </Typography>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant='body2'>Day:</Typography>
-                            <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.weeklyDay || 'N/A'}</Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant='body2'>Night:</Typography>
-                            <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.weeklyNight || 'N/A'}</Typography>
-                          </Box>
-                        </Paper>
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 4 }}>
-                        <Paper sx={{ p: 3, bgcolor: 'warning.50', border: '1px solid', borderColor: 'warning.light' }}>
-                          <Typography variant='subtitle1' fontWeight='bold' color='warning.dark' gutterBottom>
-                            Occasional/Holiday
-                          </Typography>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant='body2'>Day:</Typography>
-                            <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.occasionalDay || 'N/A'}</Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant='body2'>Night:</Typography>
-                            <Typography variant='body1' fontWeight='bold'>₹{selectedFarmhouse.pricing.occasionalNight || 'N/A'}</Typography>
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    </Grid>
+                      )}
+                    </>
                   ) : (
                     <Box sx={{ textAlign: 'center', py: 6 }}>
                       <AttachMoney sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
@@ -1009,6 +1076,158 @@ const AllFarmhouses: React.FC = () => {
                   </Grid>
                 </Box>
               )}
+
+              {detailsTab === 4 && (
+                <Box>
+                  {selectedFarmhouse.kyc ? (
+                    <Grid container spacing={3}>
+                      {/* Person 1 Details */}
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <Paper sx={{ p: 3, height: '100%' }}>
+                          <Typography variant='subtitle1' fontWeight='bold' gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Badge color='primary' /> Person 1
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            <Box>
+                              <Typography variant='caption' color='text.secondary'>Name</Typography>
+                              <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person1?.name || 'N/A'}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant='caption' color='text.secondary'>Phone</Typography>
+                              <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person1?.phone || 'N/A'}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant='caption' color='text.secondary'>Aadhaar Number</Typography>
+                              <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person1?.aadhaarNumber || 'N/A'}</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                              {selectedFarmhouse.kyc.person1?.aadhaarFrontUrl && (
+                                <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.person1.aadhaarFrontUrl} target='_blank' startIcon={<Visibility />}>
+                                  Aadhaar Front
+                                </Button>
+                              )}
+                              {selectedFarmhouse.kyc.person1?.aadhaarBackUrl && (
+                                <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.person1.aadhaarBackUrl} target='_blank' startIcon={<Visibility />}>
+                                  Aadhaar Back
+                                </Button>
+                              )}
+                            </Box>
+                          </Box>
+                        </Paper>
+                      </Grid>
+
+                      {/* Person 2 Details */}
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <Paper sx={{ p: 3, height: '100%' }}>
+                          <Typography variant='subtitle1' fontWeight='bold' gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Badge color='primary' /> Person 2
+                          </Typography>
+                          {selectedFarmhouse.kyc.person2?.name ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                              <Box>
+                                <Typography variant='caption' color='text.secondary'>Name</Typography>
+                                <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person2.name}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant='caption' color='text.secondary'>Phone</Typography>
+                                <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person2.phone || 'N/A'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant='caption' color='text.secondary'>Aadhaar Number</Typography>
+                                <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.person2.aadhaarNumber || 'N/A'}</Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                {selectedFarmhouse.kyc.person2.aadhaarFrontUrl && (
+                                  <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.person2.aadhaarFrontUrl} target='_blank' startIcon={<Visibility />}>
+                                    Aadhaar Front
+                                  </Button>
+                                )}
+                                {selectedFarmhouse.kyc.person2.aadhaarBackUrl && (
+                                  <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.person2.aadhaarBackUrl} target='_blank' startIcon={<Visibility />}>
+                                    Aadhaar Back
+                                  </Button>
+                                )}
+                              </Box>
+                            </Box>
+                          ) : (
+                            <Typography color='text.secondary'>No second person details provided</Typography>
+                          )}
+                        </Paper>
+                      </Grid>
+
+                      {/* PAN & Documents */}
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <Paper sx={{ p: 3, height: '100%' }}>
+                          <Typography variant='subtitle1' fontWeight='bold' gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Badge color='secondary' /> PAN & Documents
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                            <Box>
+                              <Typography variant='caption' color='text.secondary'>PAN Number</Typography>
+                              <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.panNumber || 'N/A'}</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                              {selectedFarmhouse.kyc.companyPANUrl && (
+                                <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.companyPANUrl} target='_blank' startIcon={<Visibility />}>
+                                  View PAN Card
+                                </Button>
+                              )}
+                              {selectedFarmhouse.kyc.labourDocUrl && (
+                                <Button variant='outlined' size='small' href={selectedFarmhouse.kyc.labourDocUrl} target='_blank' startIcon={<Visibility />}>
+                                  Labour Licence
+                                </Button>
+                              )}
+                            </Box>
+                          </Box>
+                        </Paper>
+                      </Grid>
+
+                      {/* Bank Details */}
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <Paper sx={{ p: 3, height: '100%' }}>
+                          <Typography variant='subtitle1' fontWeight='bold' gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <AccountBalance color='primary' /> Bank Details
+                          </Typography>
+                          {selectedFarmhouse.kyc.bankDetails ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                              <Box>
+                                <Typography variant='caption' color='text.secondary'>Account Holder</Typography>
+                                <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.bankDetails.accountHolderName || 'N/A'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant='caption' color='text.secondary'>Account Number</Typography>
+                                <Typography variant='body1' fontWeight={500}>
+                                  {tryDecrypt(selectedFarmhouse.kyc.bankDetails.accountNumber, selectedFarmhouse.owner_id || selectedFarmhouse.ownerId || '')}
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant='caption' color='text.secondary'>IFSC Code</Typography>
+                                <Typography variant='body1' fontWeight={500}>
+                                  {tryDecrypt(selectedFarmhouse.kyc.bankDetails.ifscCode, selectedFarmhouse.owner_id || selectedFarmhouse.ownerId || '')}
+                                </Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant='caption' color='text.secondary'>Branch</Typography>
+                                <Typography variant='body1' fontWeight={500}>{selectedFarmhouse.kyc.bankDetails.branchName || 'N/A'}</Typography>
+                              </Box>
+                            </Box>
+                          ) : (
+                            <Typography color='text.secondary'>No bank details available</Typography>
+                          )}
+                        </Paper>
+                      </Grid>
+                    </Grid>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 6 }}>
+                      <Badge sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+                      <Typography color='text.secondary' variant='h6'>No KYC details available</Typography>
+                      <Typography color='text.secondary' variant='body2'>
+                        KYC information will appear here once the owner submits it
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
@@ -1019,20 +1238,16 @@ const AllFarmhouses: React.FC = () => {
 
       {/* Edit Modal */}
       <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)} maxWidth='sm' fullWidth>
-        <DialogTitle>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant='h6' fontWeight='bold'>
             Edit Farmhouse
           </Typography>
+          <IconButton onClick={() => setEditModalOpen(false)} size='small'>
+            <Close />
+          </IconButton>
         </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              fullWidth
-              type='number'
-              label='Base Rate (₹)'
-              value={editData.base_rate}
-              onChange={(e) => setEditData({ ...editData, base_rate: Number(e.target.value) })}
-            />
             <TextField
               fullWidth
               type='number'
@@ -1041,16 +1256,11 @@ const AllFarmhouses: React.FC = () => {
               onChange={(e) => setEditData({ ...editData, commission_percentage: Number(e.target.value) })}
               inputProps={{ min: 0, max: 100 }}
             />
-            <TextField
-              fullWidth
-              type='number'
-              label='Max Guests'
-              value={editData.max_guests}
-              onChange={(e) => setEditData({ ...editData, max_guests: Number(e.target.value) })}
-            />
             <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
+              <InputLabel id='edit-status-label'>Status</InputLabel>
               <Select
+                labelId='edit-status-label'
+                label='Status'
                 value={editData.status}
                 onChange={(e) => setEditData({ ...editData, status: e.target.value })}
               >

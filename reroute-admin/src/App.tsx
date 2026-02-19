@@ -12,7 +12,6 @@ import FarmhouseApprovals from './pages/farmhouse/FarmhouseApprovals';
 import AllFarmhouses from './pages/farmhouse/AllFarmhouses';
 import CouponsManagement from './pages/coupon/CouponsManagement';
 import UsersManagement from './pages/user/UsersManagement';
-import KYCManagement from './pages/kyc/KYCManagement';
 import BookingsManagement from './pages/booking/BookingsManagement';
 import PaymentsCommission from './pages/payment/PaymentsCommission';
 import RevenueDashboard from './pages/dashboard/RevenueDashboard';
@@ -218,7 +217,6 @@ function App() {
             <Route path='/farmhouses' element={<PrivateRoute><AllFarmhouses /></PrivateRoute>} />
             <Route path='/coupons' element={<PrivateRoute><CouponsManagement /></PrivateRoute>} />
             <Route path='/users' element={<PrivateRoute><UsersManagement /></PrivateRoute>} />
-            <Route path='/kyc' element={<PrivateRoute><KYCManagement /></PrivateRoute>} />
             <Route path='/bookings' element={<PrivateRoute><BookingsManagement /></PrivateRoute>} />
             <Route path='/payments' element={<PrivateRoute><PaymentsCommission /></PrivateRoute>} />
             <Route path='/revenue' element={<PrivateRoute><RevenueDashboard /></PrivateRoute>} />
