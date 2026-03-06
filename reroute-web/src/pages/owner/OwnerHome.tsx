@@ -65,7 +65,7 @@ export default function OwnerHome() {
   useEffect(() => {
     if (!user) return;
     const unsub2 = subscribeAllBookings((list) => {
-      setBookings(list.filter((b) => b.ownerId === user.uid));
+      setBookings(list.filter((b) => (b as any).ownerId === user.uid));
     });
     return () => unsub2();
   }, [user]);
@@ -76,7 +76,7 @@ export default function OwnerHome() {
   const totalFarmhouses = farmhouses.length;
   const totalBookings = bookings.length;
   const pendingBookings = bookings.filter(
-    (b) => b.status === 'pending' || b.paymentStatus === 'payment_pending' || b.paymentStatus === 'utr_submitted'
+    (b) => b.status === 'pending' || b.status === 'payment_pending' || b.paymentStatus === 'utr_submitted'
   ).length;
   const monthRevenue = bookings
     .filter((b) => {
@@ -216,7 +216,7 @@ export default function OwnerHome() {
                         {b.userName ?? 'Guest'}
                       </td>
                       <td className="px-4 py-3 text-gray-500 hidden sm:table-cell whitespace-nowrap">
-                        {b.checkIn} → {b.checkOut}
+                        {b.checkInDate} → {b.checkOutDate}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-800">
                         {fmt(b.totalPrice ?? 0)}

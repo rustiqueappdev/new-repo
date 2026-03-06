@@ -87,6 +87,7 @@ export type PaymentStatus = 'pending' | 'utr_submitted' | 'verified' | 'failed' 
 export interface Booking {
   id: string;
   farmhouseId: string;
+  ownerId?: string;
   farmhouseName: string;
   farmhousePhoto?: string;
   userId: string;

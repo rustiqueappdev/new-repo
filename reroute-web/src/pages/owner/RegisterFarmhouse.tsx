@@ -9,7 +9,7 @@ import {
   Tv,
   Flame,
   Droplets,
-  Chess,
+  Grid3X3,
   Dices,
   Volleyball,
   Waves,
@@ -135,7 +135,7 @@ const initialData: FormData = {
 export default function RegisterFarmhouse() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { showToast } = useToast();
+  const { show } = useToast();
 
   const [step, setStep] = useState(1);
   const [data, setData] = useState<FormData>(initialData);
@@ -153,13 +153,13 @@ export default function RegisterFarmhouse() {
     try {
       const urls: string[] = [];
       for (const file of files) {
-        const url = await uploadFarmhousePhoto(file, user?.uid ?? 'unknown');
+        const url = await uploadFarmhousePhoto(user?.uid ?? 'temp', file);
         urls.push(url);
       }
       setData((prev) => ({ ...prev, photos: [...prev.photos, ...urls] }));
-      showToast(`${urls.length} photo(s) uploaded!`, 'success');
+      show(`${urls.length} photo(s) uploaded!`, 'success');
     } catch {
-      showToast('Photo upload failed', 'error');
+      show('Photo upload failed', 'error');
     } finally {
       setUploadingPhotos(false);
     }
@@ -178,7 +178,6 @@ export default function RegisterFarmhouse() {
     try {
       await createFarmhouse({
         ...data,
-        ownerId: user.uid,
         ownerEmail: user.email ?? '',
         status: 'pending',
         pricing: Object.fromEntries(
@@ -187,11 +186,11 @@ export default function RegisterFarmhouse() {
         basicDetails: {
           kyc: data.kyc,
         },
-      });
-      showToast('Farmhouse submitted for approval!', 'success');
+      }, user.uid);
+      show('Farmhouse submitted for approval!', 'success');
       navigate('/owner/farmhouses');
     } catch {
-      showToast('Failed to submit. Please try again.', 'error');
+      show('Failed to submit. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -466,7 +465,7 @@ function Step4({ amenities, onChange }: { amenities: FormData['amenities']; onCh
       <CountToggle label="TV" icon={<Tv size={18} />} value={amenities.tv} max={3} onChange={(v) => onChange('tv', v)} />
       <CountToggle label="Geyser" icon={<Droplets size={18} />} value={amenities.geyser} max={2} onChange={(v) => onChange('geyser', v)} />
       <CountToggle label="Bonfire" icon={<Flame size={18} />} value={amenities.bonfire} max={1} onChange={(v) => onChange('bonfire', v)} />
-      <CountToggle label="Chess" icon={<Chess size={18} />} value={amenities.chess} max={1} onChange={(v) => onChange('chess', v)} />
+      <CountToggle label="Chess" icon={<Grid3X3 size={18} />} value={amenities.chess} max={1} onChange={(v) => onChange('chess', v)} />
       <CountToggle label="Carroms" icon={<Dices size={18} />} value={amenities.carroms} max={1} onChange={(v) => onChange('carroms', v)} />
       <CountToggle label="Volleyball" icon={<Volleyball size={18} />} value={amenities.volleyball} max={1} onChange={(v) => onChange('volleyball', v)} />
       <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">

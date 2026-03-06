@@ -13,7 +13,7 @@ import {
   Tv,
   Flame,
   Droplets,
-  Chess,
+  Grid3X3,
   Dices,
   Volleyball,
   Waves,
@@ -42,7 +42,7 @@ const AMENITY_ICONS: Record<string, React.ReactNode> = {
   tv: <Tv size={20} />,
   geyser: <Droplets size={20} />,
   bonfire: <Flame size={20} />,
-  chess: <Chess size={20} />,
+  chess: <Grid3X3 size={20} />,
   carroms: <Dices size={20} />,
   volleyball: <Volleyball size={20} />,
   pool: <Waves size={20} />,
@@ -82,8 +82,8 @@ export default function FarmhouseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isWishlisted, toggleWishlist } = useWishlist();
-  const { showToast } = useToast();
+  const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
+  const { show } = useToast();
 
   const [farmhouse, setFarmhouse] = useState<Farmhouse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,7 +113,7 @@ export default function FarmhouseDetail() {
         setLoading(false);
       })
       .catch(() => {
-        showToast('Failed to load farmhouse details', 'error');
+        show('Failed to load farmhouse details', 'error');
         setLoading(false);
       });
   }, [id]);
@@ -135,17 +135,9 @@ export default function FarmhouseDetail() {
   const selectedDates = checkIn && checkOut ? datesBetween(checkIn, checkOut) : [];
   const hasConflict = selectedDates.some((d) => isDateUnavailable(d));
 
-  const pricing = farmhouse?.pricing;
-
   const priceBreakdown = (() => {
-    if (!checkIn || !checkOut || !pricing) return null;
-    return calculateTotal({
-      checkIn,
-      checkOut,
-      bookingType,
-      pricing,
-      guestCount,
-    });
+    if (!checkIn || !checkOut || !farmhouse) return null;
+    return calculateTotal(farmhouse, checkIn, checkOut, bookingType);
   })();
 
   const handleShare = async () => {
@@ -159,18 +151,18 @@ export default function FarmhouseDetail() {
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(window.location.href);
-        showToast('Link copied to clipboard!', 'success');
+        show('Link copied to clipboard!', 'success');
       }
     } catch {
-      showToast('Could not share', 'error');
+      show('Could not share', 'error');
     }
   };
 
   // Booking flow: no payment processing — redirect to Contact Admin page
   const handleBookNow = () => {
     if (!user) { navigate('/login'); return; }
-    if (!checkIn || !checkOut) { showToast('Please select check-in and check-out dates', 'error'); return; }
-    if (hasConflict) { showToast('Some selected dates are unavailable', 'error'); return; }
+    if (!checkIn || !checkOut) { show('Please select check-in and check-out dates', 'error'); return; }
+    if (hasConflict) { show('Some selected dates are unavailable', 'error'); return; }
     if (!farmhouse || !priceBreakdown) return;
     navigate('/contact', {
       state: {
@@ -190,6 +182,7 @@ export default function FarmhouseDetail() {
     setReviewSubmitting(true);
     try {
       await addReview(id, {
+        farmhouseId: id,
         userId: user.uid,
         userName: user.displayName ?? user.email ?? 'Anonymous',
         rating: reviewRating,
@@ -197,9 +190,9 @@ export default function FarmhouseDetail() {
       });
       setReviewComment('');
       setReviewRating(5);
-      showToast('Review submitted!', 'success');
+      show('Review submitted!', 'success');
     } catch {
-      showToast('Failed to submit review', 'error');
+      show('Failed to submit review', 'error');
     } finally {
       setReviewSubmitting(false);
     }
@@ -269,14 +262,14 @@ export default function FarmhouseDetail() {
               <Share2 size={20} className="text-gray-600" />
             </button>
             <button
-              onClick={() => toggleWishlist(farmhouse.id!)}
+              onClick={() => isInWishlist(farmhouse.id!) ? removeFromWishlist(farmhouse.id!) : addToWishlist(farmhouse.id!)}
               className="p-2 rounded-full hover:bg-gray-100 transition"
               aria-label="Wishlist"
             >
               <Heart
                 size={20}
                 className={
-                  isWishlisted(farmhouse.id!)
+                  isInWishlist(farmhouse.id!)
                     ? 'fill-red-500 text-red-500'
                     : 'text-gray-600'
                 }
@@ -374,7 +367,7 @@ export default function FarmhouseDetail() {
             {/* Rating */}
             {avgRating && (
               <div className="flex items-center gap-2 mb-4">
-                <StarRating value={parseFloat(avgRating)} readOnly />
+                <StarRating value={parseFloat(avgRating)} />
                 <span className="font-semibold text-gray-800">{avgRating}</span>
                 <span className="text-gray-500 text-sm">({reviews.length} reviews)</span>
               </div>
@@ -417,59 +410,59 @@ export default function FarmhouseDetail() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {pricing?.weeklyDay && (
+                        {!!farmhouse.weeklyDay && (
                           <tr>
                             <td className="px-4 py-3 text-gray-700">Weekday – Day Use</td>
                             <td className="px-4 py-3 text-right gold-text font-semibold">
-                              {fmt(pricing.weeklyDay)}
+                              {fmt(farmhouse.weeklyDay)}
                             </td>
                           </tr>
                         )}
-                        {pricing?.weeklyNight && (
+                        {!!farmhouse.weeklyNight && (
                           <tr>
                             <td className="px-4 py-3 text-gray-700">Weekday – Overnight</td>
                             <td className="px-4 py-3 text-right gold-text font-semibold">
-                              {fmt(pricing.weeklyNight)}
+                              {fmt(farmhouse.weeklyNight)}
                             </td>
                           </tr>
                         )}
-                        {pricing?.weekendDay && (
+                        {!!farmhouse.weekendDay && (
                           <tr>
                             <td className="px-4 py-3 text-gray-700">Weekend – Day Use</td>
                             <td className="px-4 py-3 text-right gold-text font-semibold">
-                              {fmt(pricing.weekendDay)}
+                              {fmt(farmhouse.weekendDay)}
                             </td>
                           </tr>
                         )}
-                        {pricing?.weekendNight && (
+                        {!!farmhouse.weekendNight && (
                           <tr>
                             <td className="px-4 py-3 text-gray-700">Weekend – Overnight</td>
                             <td className="px-4 py-3 text-right gold-text font-semibold">
-                              {fmt(pricing.weekendNight)}
+                              {fmt(farmhouse.weekendNight)}
                             </td>
                           </tr>
                         )}
-                        {pricing?.occasionalDay && (
+                        {!!farmhouse.occasionalDay && (
                           <tr>
                             <td className="px-4 py-3 text-gray-700">Holiday – Day Use</td>
                             <td className="px-4 py-3 text-right gold-text font-semibold">
-                              {fmt(pricing.occasionalDay)}
+                              {fmt(farmhouse.occasionalDay)}
                             </td>
                           </tr>
                         )}
-                        {pricing?.occasionalNight && (
+                        {!!farmhouse.occasionalNight && (
                           <tr>
                             <td className="px-4 py-3 text-gray-700">Holiday – Overnight</td>
                             <td className="px-4 py-3 text-right gold-text font-semibold">
-                              {fmt(pricing.occasionalNight)}
+                              {fmt(farmhouse.occasionalNight)}
                             </td>
                           </tr>
                         )}
-                        {pricing?.extraGuestPrice && (
+                        {!!farmhouse.extraGuestPrice && (
                           <tr>
                             <td className="px-4 py-3 text-gray-700">Extra Guest / night</td>
                             <td className="px-4 py-3 text-right gold-text font-semibold">
-                              {fmt(pricing.extraGuestPrice)}
+                              {fmt(farmhouse.extraGuestPrice)}
                             </td>
                           </tr>
                         )}
@@ -477,11 +470,11 @@ export default function FarmhouseDetail() {
                     </table>
                   </div>
                 </div>
-                {farmhouse.farmLink && (
+                {farmhouse.mapLink && (
                   <div>
                     <h3 className="section-title">Location</h3>
                     <a
-                      href={farmhouse.farmLink}
+                      href={farmhouse.mapLink}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn-outline inline-flex items-center gap-2"
@@ -562,7 +555,7 @@ export default function FarmhouseDetail() {
                                 : ''}
                             </p>
                           </div>
-                          <StarRating value={review.rating} readOnly size="sm" />
+                          <StarRating value={review.rating} size={14} />
                         </div>
                         <p className="text-gray-600 text-sm">{review.comment}</p>
                       </div>
@@ -738,7 +731,7 @@ interface BookingPanelProps {
   checkOut: string;
   bookingType: BookingType;
   guestCount: number;
-  priceBreakdown: { base: number; platformFee: number; processingFee: number; total: number } | null;
+  priceBreakdown: { baseAmount: number; platformFee: number; processingFee: number; total: number; nights: number } | null;
   hasConflict: boolean;
   bookingLoading: boolean;
   setCheckIn: (v: string) => void;
@@ -843,7 +836,7 @@ function BookingPanel({
         <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-sm">
           <div className="flex justify-between text-gray-600">
             <span>Base amount</span>
-            <span>{fmt(priceBreakdown.base)}</span>
+            <span>{fmt(priceBreakdown.baseAmount)}</span>
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Platform fee (2%)</span>

@@ -30,8 +30,8 @@ const DEFAULT_FILTERS: FilterState = {
 const Explore: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { showToast } = useToast();
-  const { wishlist, toggleWishlist } = useWishlist();
+  const { show } = useToast();
+  const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
 
   const [farmhouses, setFarmhouses] = useState<any[]>([]);
   const [ratings, setRatings] = useState<Record<string, number>>({});
@@ -43,12 +43,7 @@ const Explore: React.FC = () => {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [pendingFilters, setPendingFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
-  // Auth guard
-  useEffect(() => {
-    if (user === null) {
-      navigate('/login');
-    }
-  }, [user, navigate]);
+  // No auth guard — explore is public
 
   // Subscribe to approved farmhouses
   useEffect(() => {
@@ -94,20 +89,21 @@ const Explore: React.FC = () => {
           await navigator.share({ title: fh.name, text, url });
         } else {
           await navigator.clipboard.writeText(url);
-          showToast('Link copied to clipboard!', 'success');
+          show('Link copied to clipboard!', 'success');
         }
       } catch {
         // user cancelled share or clipboard failed
       }
     },
-    [showToast]
+    [show]
   );
 
   const handleWishlistToggle = useCallback(
     (id: string) => {
-      toggleWishlist(id);
+      if (isInWishlist(id)) removeFromWishlist(id);
+      else addToWishlist(id);
     },
-    [toggleWishlist]
+    [isInWishlist, addToWishlist, removeFromWishlist]
   );
 
   const applyFilters = () => {
@@ -161,16 +157,13 @@ const Explore: React.FC = () => {
       }
     });
 
-  if (user === null) return null;
-
   return (
     <Layout>
       <div className="page-wrap">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold" style={{ color: '#1b2838' }}>
-            Welcome back,{' '}
-            <span className="gold-text">{user?.displayName?.split(' ')[0] || 'Explorer'}!</span>
+          <h1 className="text-3xl font-bold text-navy-800 dark:text-gray-100">
+            {user ? <>Welcome back, <span className="gold-text">{user.displayName?.split(' ')[0] || 'Explorer'}!</span></> : <span>Explore <span className="gold-text">Farmhouses</span></span>}
           </h1>
           <p className="text-gray-500 mt-1">Discover your next perfect farmhouse escape.</p>
         </div>
@@ -296,9 +289,10 @@ const Explore: React.FC = () => {
             {filteredAndSorted.map((fh) => (
               <FarmhouseCard
                 key={fh.id}
-                farmhouse={{ ...fh, rating: ratings[fh.id] }}
-                isWishlisted={wishlist.includes(fh.id)}
-                onWishlistToggle={() => handleWishlistToggle(fh.id)}
+                farmhouse={fh}
+                rating={ratings[fh.id]}
+                isInWishlist={isInWishlist(fh.id)}
+                onWishlist={() => handleWishlistToggle(fh.id)}
                 onShare={() => handleShare(fh)}
                 onClick={() => navigate(`/farmhouse/${fh.id}`)}
               />
@@ -309,7 +303,7 @@ const Explore: React.FC = () => {
 
       {/* Filter Modal */}
       <Modal
-        isOpen={filterOpen}
+        open={filterOpen}
         onClose={() => setFilterOpen(false)}
         title="Filter Farmhouses"
       >

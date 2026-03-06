@@ -102,7 +102,7 @@ export default function ManageBlockedDates() {
   const { farmhouseId } = useParams<{ farmhouseId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { showToast } = useToast();
+  const { show } = useToast();
 
   const [farmhouse, setFarmhouse] = useState<Farmhouse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,7 +131,7 @@ export default function ManageBlockedDates() {
         setLoading(false);
       })
       .catch(() => {
-        showToast('Failed to load farmhouse', 'error');
+        show('Failed to load farmhouse', 'error');
         setLoading(false);
       });
   }, [farmhouseId]);
@@ -154,10 +154,10 @@ export default function ManageBlockedDates() {
     setSaving(true);
     try {
       await updateBlockedDates(farmhouseId, Array.from(blockedSet));
-      showToast('Blocked dates updated!', 'success');
+      show('Blocked dates updated!', 'success');
       setDirty(false);
     } catch {
-      showToast('Failed to save blocked dates', 'error');
+      show('Failed to save blocked dates', 'error');
     } finally {
       setSaving(false);
     }

@@ -11,7 +11,7 @@ import FarmhouseCard from '../../components/ui/FarmhouseCard';
 const Wishlist: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { wishlist, toggleWishlist } = useWishlist();
+  const { wishlist, isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
 
   const [farmhouses, setFarmhouses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,8 +127,8 @@ const Wishlist: React.FC = () => {
                 <FarmhouseCard
                   key={fh.id}
                   farmhouse={fh}
-                  isWishlisted={true}
-                  onWishlistToggle={() => toggleWishlist(fh.id)}
+                  isInWishlist={isInWishlist(fh.id)}
+                  onWishlist={() => isInWishlist(fh.id) ? removeFromWishlist(fh.id) : addToWishlist(fh.id)}
                   onShare={() => handleShare(fh)}
                   onClick={() => navigate(`/farmhouse/${fh.id}`)}
                 />
