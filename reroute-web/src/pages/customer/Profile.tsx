@@ -11,7 +11,7 @@ import { Mail, Phone, Shield, Edit3, Save, X, MessageCircle } from 'lucide-react
 const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { showToast } = useToast();
+  const { show } = useToast();
 
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +88,7 @@ const Profile: React.FC = () => {
         phone: phone.trim(),
       }));
 
-      showToast('Profile updated successfully!', 'success');
+      show('Profile updated successfully!', 'success');
       setEditing(false);
     } catch (err: any) {
       setError(err?.message || 'Failed to update profile. Please try again.');
@@ -156,7 +156,7 @@ const Profile: React.FC = () => {
                 <p className="text-gray-400 text-sm mb-3">{user.email}</p>
                 <div className="flex items-center gap-2 justify-center sm:justify-start">
                   {getRoleBadge(userData?.role)}
-                  {user.emailVerified && (
+                  {(user as any).emailVerified && (
                     <span className="flex items-center gap-1 text-xs text-green-400">
                       <Shield className="w-3 h-3" />
                       Verified

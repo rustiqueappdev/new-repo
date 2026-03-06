@@ -1,338 +1,210 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MapPin, CalendarCheck, QrCode, Star, Users, Home } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Search, CalendarCheck, Star, MapPin, Users, ChevronDown, Phone, Check } from 'lucide-react';
 import Layout from '../components/layout/Layout';
+import { subscribeApprovedFarmhouses } from '../services/farmhouseService';
+import type { Farmhouse } from '../types';
+import { useWishlist } from '../context/WishlistContext';
+import FarmhouseCard from '../components/ui/FarmhouseCard';
+import { useNavigate } from 'react-router-dom';
 
-const Welcome: React.FC = () => {
+export default function Welcome() {
+  const [farmhouses, setFarmhouses] = useState<Farmhouse[]>([]);
+  const [search, setSearch] = useState('');
   const navigate = useNavigate();
+  const { isInWishlist, addToWishlist, removeFromWishlist } = useWishlist();
+
+  useEffect(() => {
+    const unsub = subscribeApprovedFarmhouses((list) => setFarmhouses(list));
+    return unsub;
+  }, []);
+
+  const featured = farmhouses.slice(0, 6);
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    navigate(`/explore${search ? `?q=${encodeURIComponent(search)}` : ''}`);
+  }
+
+  function shareFarmhouse(f: Farmhouse) {
+    if (navigator.share) navigator.share({ title: f.name, url: `/farmhouse/${f.id}` });
+    else navigator.clipboard.writeText(window.location.origin + `/farmhouse/${f.id}`);
+  }
 
   return (
     <Layout>
-      {/* Hero Section */}
-      <section
-        className="relative min-h-screen flex items-center justify-center"
-        style={{
-          backgroundImage:
-            'url(https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        {/* Gradient Overlay */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(27,40,56,0.92) 0%, rgba(27,40,56,0.75) 50%, rgba(27,40,56,0.88) 100%)',
-          }}
-        />
-
-        <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
-          <div className="mb-4">
-            <span
-              className="inline-block text-xs font-semibold tracking-widest uppercase py-1 px-4 rounded-full border mb-6"
-              style={{ borderColor: '#D4AF37', color: '#D4AF37' }}
-            >
-              Premium Farmhouse Stays
-            </span>
-          </div>
-          <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight mb-6">
-            Escape to{' '}
-            <span className="gold-text">Nature's Finest</span>
-          </h1>
-          <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Discover handpicked luxury farmhouses for your perfect getaway.
-            Book effortlessly and pay securely via UPI — no middlemen, no fuss.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              className="btn-primary text-lg px-8 py-4"
-              onClick={() => navigate('/explore')}
-            >
-              Explore Farmhouses
-            </button>
-            <button
-              className="btn-outline text-lg px-8 py-4"
-              onClick={() => navigate('/register')}
-            >
-              List Your Property
-            </button>
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-60">
-          <span className="text-white text-xs tracking-widest uppercase">Scroll</span>
-          <div
-            className="w-px h-10 animate-pulse"
-            style={{ background: '#D4AF37' }}
+      {/* ── HERO ── */}
+      <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80"
+            alt="Farmhouse"
+            className="w-full h-full object-cover"
           />
+          <div className="absolute inset-0 bg-gradient-to-r from-navy-900/90 via-navy-800/60 to-transparent" />
         </div>
-      </section>
 
-      {/* Stats Row */}
-      <section
-        className="py-12 px-6"
-        style={{ background: '#1b2838' }}
-      >
-        <div className="max-w-4xl mx-auto grid grid-cols-3 gap-8 text-center">
-          {[
-            { value: '50+', label: 'Farmhouses' },
-            { value: '1000+', label: 'Guests Hosted' },
-            { value: '4.8★', label: 'Average Rating' },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <p
-                className="text-4xl font-bold mb-1 gold-text"
-              >
-                {stat.value}
-              </p>
-              <p className="text-gray-400 text-sm uppercase tracking-wider">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="py-20 px-6 bg-gray-50">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="section-title text-center mb-4">How It Works</h2>
-          <p className="text-center text-gray-500 mb-14 max-w-xl mx-auto">
-            From discovery to doorstep — we've made luxury farmhouse booking effortlessly simple.
-          </p>
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Step 1 */}
-            <div className="card text-center group hover:shadow-xl transition-shadow duration-300">
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform duration-300 group-hover:scale-110"
-                style={{ background: 'linear-gradient(135deg, #D4AF37, #b8960c)' }}
-              >
-                <MapPin className="w-8 h-8 text-white" />
-              </div>
-              <div
-                className="text-xs font-bold tracking-widest uppercase mb-3"
-                style={{ color: '#D4AF37' }}
-              >
-                Step 1
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Discover</h3>
-              <p className="text-gray-500 leading-relaxed">
-                Browse our curated collection of premium farmhouses. Filter by location, capacity,
-                price, and amenities to find your perfect retreat.
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="card text-center group hover:shadow-xl transition-shadow duration-300">
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform duration-300 group-hover:scale-110"
-                style={{ background: 'linear-gradient(135deg, #D4AF37, #b8960c)' }}
-              >
-                <CalendarCheck className="w-8 h-8 text-white" />
-              </div>
-              <div
-                className="text-xs font-bold tracking-widest uppercase mb-3"
-                style={{ color: '#D4AF37' }}
-              >
-                Step 2
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Book</h3>
-              <p className="text-gray-500 leading-relaxed">
-                Select your dates, choose your guests, and send a booking request in seconds.
-                Get instant confirmation from the property.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="card text-center group hover:shadow-xl transition-shadow duration-300">
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-transform duration-300 group-hover:scale-110"
-                style={{ background: 'linear-gradient(135deg, #D4AF37, #b8960c)' }}
-              >
-                <QrCode className="w-8 h-8 text-white" />
-              </div>
-              <div
-                className="text-xs font-bold tracking-widest uppercase mb-3"
-                style={{ color: '#D4AF37' }}
-              >
-                Step 3
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Pay via UPI</h3>
-              <p className="text-gray-500 leading-relaxed">
-                Scan the UPI QR code, complete your payment in your favourite app, and submit
-                your UTR for instant verification.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* UPI Payment Highlight Section */}
-      <section
-        className="py-20 px-6"
-        style={{ background: '#1b2838' }}
-      >
-        <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-14 items-center">
-          {/* Left: Text */}
-          <div>
-            <span
-              className="inline-block text-xs font-semibold tracking-widest uppercase py-1 px-3 rounded-full mb-5"
-              style={{ background: 'rgba(212,175,55,0.15)', color: '#D4AF37' }}
-            >
-              Simple Payments
-            </span>
-            <h2 className="text-4xl font-bold text-white mb-6 leading-tight">
-              Pay Instantly with <span className="gold-text">UPI</span>
-            </h2>
-            <p className="text-gray-400 mb-6 leading-relaxed">
-              No credit cards, no complicated gateways. Just scan the QR code shown at booking,
-              pay via any UPI app — GPay, PhonePe, Paytm — and enter your UTR number.
-              We verify and confirm your stay within minutes.
+        <div className="relative page-wrap py-20 w-full">
+          <div className="max-w-2xl">
+            <div className="badge-gold mb-5 inline-flex">✦ Premium Farmhouse Stays</div>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white leading-tight">
+              Escape to
+              <span className="block bg-gradient-to-r from-gold-400 to-gold-300 bg-clip-text text-transparent">
+                Nature's Finest
+              </span>
+            </h1>
+            <p className="mt-5 text-base sm:text-lg text-gray-300 max-w-xl leading-relaxed">
+              Handpicked farmhouses for your perfect countryside retreat. Browse, select your dates, and contact us to book instantly.
             </p>
-            <ul className="space-y-3">
-              {[
-                'Works with all UPI apps',
-                'Instant payment confirmation',
-                'Secure UTR-based verification',
-                'Zero hidden charges',
-              ].map((item) => (
-                <li key={item} className="flex items-center gap-3 text-gray-300">
-                  <span
-                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-                    style={{ background: '#D4AF37', color: '#1b2838' }}
-                  >
-                    ✓
-                  </span>
-                  {item}
-                </li>
+
+            {/* Search bar */}
+            <form onSubmit={handleSearch} className="mt-8 flex items-center gap-2 bg-white dark:bg-navy-800 rounded-2xl shadow-2xl p-2 max-w-lg">
+              <Search size={18} className="text-gray-400 ml-2 flex-shrink-0" />
+              <input
+                className="flex-1 bg-transparent text-navy-800 dark:text-gray-100 placeholder-gray-400 text-sm focus:outline-none py-2"
+                placeholder="Search by name, city or area..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              <button type="submit" className="btn-primary !px-5 !py-2.5 text-sm whitespace-nowrap">Search</button>
+            </form>
+
+            <div className="mt-10 flex flex-wrap gap-8">
+              {[{ v: '50+', l: 'Farmhouses' }, { v: '1000+', l: 'Happy Guests' }, { v: '4.8★', l: 'Avg Rating' }].map(s => (
+                <div key={s.l}>
+                  <p className="text-2xl font-bold text-gold-400">{s.v}</p>
+                  <p className="text-sm text-gray-400 mt-0.5">{s.l}</p>
+                </div>
               ))}
-            </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 animate-bounce hidden sm:block">
+          <ChevronDown size={24} className="text-gold-400" />
+        </div>
+      </section>
+
+      {/* ── FEATURED FARMHOUSES ── */}
+      <section className="py-16 md:py-20 bg-gray-50 dark:bg-navy-900">
+        <div className="page-wrap">
+          <div className="text-center mb-10">
+            <h2 className="section-title">Featured <span className="gold-text">Retreats</span></h2>
+            <p className="mt-2 text-gray-500 dark:text-gray-400 text-sm">Handpicked premium farmhouses — no login needed to browse</p>
           </div>
 
-          {/* Right: Mock QR Card */}
-          <div className="flex justify-center">
-            <div
-              className="rounded-2xl p-8 text-center shadow-2xl w-72"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(212,175,55,0.3)' }}
-            >
-              <p
-                className="text-sm font-semibold uppercase tracking-wider mb-4"
-                style={{ color: '#D4AF37' }}
-              >
-                ReRoute Pay
-              </p>
-              {/* Simulated QR grid */}
-              <div
-                className="w-40 h-40 mx-auto rounded-xl mb-4 flex items-center justify-center"
-                style={{ background: 'white' }}
-              >
-                <div className="grid grid-cols-7 gap-0.5 p-3 w-full h-full">
-                  {Array.from({ length: 49 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="rounded-sm"
-                      style={{
-                        background:
-                          [0,1,2,3,4,5,6,7,13,14,20,21,27,28,34,35,41,42,43,44,45,46,48].includes(i % 49)
-                            ? '#1b2838'
-                            : 'transparent',
-                        aspectRatio: '1',
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <p className="text-white font-bold text-lg mb-1">reroutepay@upi</p>
-              <p className="text-gray-400 text-xs mb-4">Scan with any UPI app</p>
-              <div
-                className="rounded-lg py-2 px-4 flex items-center justify-center gap-2"
-                style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)' }}
-              >
-                <QrCode className="w-4 h-4" style={{ color: '#D4AF37' }} />
-                <span className="text-sm font-medium" style={{ color: '#D4AF37' }}>
-                  UPI Verified
-                </span>
-              </div>
+          {farmhouses.length === 0 ? (
+            <div className="flex justify-center py-16">
+              <div className="w-8 h-8 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+              {featured.map(f => (
+                <FarmhouseCard
+                  key={f.id}
+                  farmhouse={f}
+                  isInWishlist={isInWishlist(f.id)}
+                  onClick={() => navigate(`/farmhouse/${f.id}`)}
+                  onShare={() => shareFarmhouse(f)}
+                  onWishlist={() => isInWishlist(f.id) ? removeFromWishlist(f.id) : addToWishlist(f.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          <div className="text-center mt-10">
+            <Link to="/explore" className="btn-outline">View All Farmhouses →</Link>
           </div>
         </div>
       </section>
 
-      {/* Feature Highlights */}
-      <section className="py-20 px-6 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="section-title text-center mb-4">Why Choose ReRoute?</h2>
-          <p className="text-center text-gray-500 mb-14 max-w-xl mx-auto">
-            We bring together the best farmhouses and the smoothest booking experience.
-          </p>
-          <div className="grid md:grid-cols-3 gap-8">
+      {/* ── HOW IT WORKS ── */}
+      <section className="py-16 md:py-20">
+        <div className="page-wrap">
+          <div className="text-center mb-12">
+            <h2 className="section-title">How It <span className="gold-text">Works</span></h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {[
-              {
-                icon: <Home className="w-7 h-7 text-white" />,
-                title: 'Curated Properties',
-                desc: 'Every farmhouse is personally verified for quality, amenities, and safety before listing.',
-              },
-              {
-                icon: <Users className="w-7 h-7 text-white" />,
-                title: 'Group-Friendly',
-                desc: 'From intimate escapes to large gatherings — find farmhouses that fit your entire group.',
-              },
-              {
-                icon: <Star className="w-7 h-7 text-white" />,
-                title: 'Honest Reviews',
-                desc: 'Real reviews from real guests. Make informed decisions with transparent ratings.',
-              },
-            ].map((feat) => (
-              <div key={feat.title} className="flex gap-4">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #D4AF37, #b8960c)' }}
-                >
-                  {feat.icon}
+              { n: '1', Icon: Search,        title: 'Discover',          desc: 'Browse curated farmhouses by location, amenities, and price — no account needed.' },
+              { n: '2', Icon: CalendarCheck, title: 'Select Dates',      desc: 'Pick your check-in and check-out dates, choose guests, and see the full price breakdown.' },
+              { n: '3', Icon: Phone,         title: 'Contact & Confirm', desc: 'Reach out via WhatsApp or call. We confirm availability and finalize your booking.' },
+            ].map(s => (
+              <div key={s.n} className="text-center group">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center mx-auto mb-4 shadow-gold group-hover:scale-110 transition-transform">
+                  <s.Icon size={28} className="text-white" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-1">{feat.title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed">{feat.desc}</p>
-                </div>
+                <div className="w-7 h-7 rounded-full bg-gold-100 dark:bg-gold-900/30 text-gold-700 dark:text-gold-400 flex items-center justify-center text-xs font-bold mx-auto mb-3">{s.n}</div>
+                <h3 className="font-semibold text-navy-800 dark:text-gray-100 mb-2">{s.title}</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Final CTA Strip */}
-      <section
-        className="py-20 px-6 text-center"
-        style={{
-          background: 'linear-gradient(135deg, #D4AF37 0%, #b8960c 40%, #D4AF37 100%)',
-        }}
-      >
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Ready for Your Perfect Getaway?
-          </h2>
-          <p className="text-yellow-100 mb-8 text-lg">
-            Join thousands of guests who've discovered their ideal farmhouse retreat through ReRoute.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              className="bg-white font-bold py-4 px-10 rounded-xl hover:bg-gray-50 transition-colors duration-200 shadow-lg"
-              style={{ color: '#D4AF37' }}
-              onClick={() => navigate('/explore')}
-            >
-              Start Exploring
-            </button>
-            <button
-              className="border-2 border-white text-white font-bold py-4 px-10 rounded-xl hover:bg-white/10 transition-colors duration-200"
-              onClick={() => navigate('/register')}
-            >
-              List Your Property
-            </button>
+      {/* ── WHY REROUTE ── */}
+      <section className="py-16 md:py-20 bg-gradient-to-br from-navy-800 to-navy-600">
+        <div className="page-wrap">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="badge-gold mb-4 inline-flex">Why ReRoute</div>
+              <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">
+                Trusted Stays, <span className="gold-text">Every Time</span>
+              </h2>
+              <p className="mt-4 text-gray-300 leading-relaxed">
+                Every farmhouse is personally verified before listing. We work directly with owners to ensure quality, hygiene, and honest pricing — no surprises.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  'Verified farmhouses only',
+                  'Transparent pricing — no hidden fees',
+                  'Dedicated support before & during your stay',
+                  'Flexible booking for groups of all sizes',
+                  'Real reviews from real guests',
+                ].map(pt => (
+                  <li key={pt} className="flex items-center gap-3 text-gray-300 text-sm">
+                    <div className="w-5 h-5 rounded-full bg-gold-400/20 flex items-center justify-center flex-shrink-0">
+                      <Check size={11} className="text-gold-400" />
+                    </div>
+                    {pt}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: 'Farmhouses', value: '50+', icon: MapPin },
+                { label: 'Happy Guests', value: '1000+', icon: Users },
+                { label: 'Avg Rating', value: '4.8', icon: Star },
+                { label: 'Cities', value: '10+', icon: Search },
+              ].map(s => (
+                <div key={s.label} className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 text-center">
+                  <s.icon size={24} className="text-gold-400 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-white">{s.value}</p>
+                  <p className="text-xs text-gray-400 mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <section className="py-16 md:py-20 bg-gradient-to-r from-gold-500 to-gold-400">
+        <div className="page-wrap text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-white">Ready for Your Getaway?</h2>
+          <p className="mt-3 text-gold-100 text-lg">Browse farmhouses now — no account needed</p>
+          <div className="mt-8 flex flex-wrap gap-4 justify-center">
+            <Link to="/explore" className="bg-white text-gold-700 font-semibold px-8 py-4 rounded-xl hover:bg-gold-50 transition-colors shadow-lg">
+              Browse Farmhouses
+            </Link>
+            <Link to="/contact" className="border-2 border-white text-white font-semibold px-8 py-4 rounded-xl hover:bg-white/10 transition-colors">
+              Contact Us
+            </Link>
           </div>
         </div>
       </section>
     </Layout>
   );
-};
-
-export default Welcome;
+}

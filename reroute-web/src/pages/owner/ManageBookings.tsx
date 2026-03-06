@@ -29,7 +29,7 @@ export default function ManageBookings() {
   const { farmhouseId: paramFarmhouseId } = useParams<{ farmhouseId?: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { showToast } = useToast();
+  const { show } = useToast();
 
   const [farmhouses, setFarmhouses] = useState<Farmhouse[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -58,7 +58,7 @@ export default function ManageBookings() {
   useEffect(() => {
     if (!user) return;
     const unsub = subscribeAllBookings((list) => {
-      setBookings(list.filter((b) => b.ownerId === user.uid));
+      setBookings(list.filter((b) => (b as any).ownerId === user.uid));
     });
     return () => unsub();
   }, [user]);
@@ -85,9 +85,9 @@ export default function ManageBookings() {
     setVerifyingId(bookingId);
     try {
       await adminVerifyPayment(bookingId);
-      showToast('Payment verified!', 'success');
+      show('Payment verified!', 'success');
     } catch {
-      showToast('Failed to verify payment', 'error');
+      show('Failed to verify payment', 'error');
     } finally {
       setVerifyingId(null);
     }
@@ -153,9 +153,9 @@ export default function ManageBookings() {
                     <tr key={b.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-800 font-medium">{b.userName ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                        {b.checkIn} → {b.checkOut}
+                        {b.checkInDate} → {b.checkOutDate}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">{b.guestCount}</td>
+                      <td className="px-4 py-3 text-center text-gray-600">{b.guests}</td>
                       <td className="px-4 py-3 text-right font-semibold">{fmt(b.totalPrice)}</td>
                       <td className="px-4 py-3 text-center">
                         <StatusBadge status={b.status} />
@@ -168,7 +168,7 @@ export default function ManageBookings() {
                       </td>
                       <td className="px-4 py-3">
                         {(b.paymentStatus === 'utr_submitted' ||
-                          b.paymentStatus === 'payment_pending') && (
+                          b.status === 'payment_pending') && (
                           <button
                             onClick={() => handleVerify(b.id!)}
                             disabled={verifyingId === b.id}
@@ -192,13 +192,13 @@ export default function ManageBookings() {
                     <div>
                       <p className="font-semibold text-gray-800">{b.userName ?? 'Guest'}</p>
                       <p className="text-sm text-gray-500">
-                        {b.checkIn} → {b.checkOut}
+                        {b.checkInDate} → {b.checkOutDate}
                       </p>
                     </div>
                     <StatusBadge status={b.status} />
                   </div>
                   <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                    <span>{b.guestCount} guests</span>
+                    <span>{b.guests} guests</span>
                     <span className="font-bold text-gray-900">{fmt(b.totalPrice)}</span>
                   </div>
                   <div className="flex items-center gap-2 mb-3">
@@ -208,7 +208,7 @@ export default function ManageBookings() {
                       <span className="text-xs font-mono text-gray-400 ml-1">UTR: {b.utrNumber}</span>
                     )}
                   </div>
-                  {(b.paymentStatus === 'utr_submitted' || b.paymentStatus === 'payment_pending') && (
+                  {(b.paymentStatus === 'utr_submitted' || b.status === 'payment_pending') && (
                     <button
                       onClick={() => handleVerify(b.id!)}
                       disabled={verifyingId === b.id}

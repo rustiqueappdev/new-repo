@@ -87,8 +87,6 @@ export default function MyFarmhouses() {
 
 function FarmhouseCard({ farmhouse }: { farmhouse: Farmhouse }) {
   const photo = farmhouse.photos?.[0];
-  const pricing = farmhouse.pricing;
-
   return (
     <div className="card overflow-hidden p-0 flex flex-col">
       <div className="relative h-44 bg-gray-100">
@@ -119,9 +117,9 @@ function FarmhouseCard({ farmhouse }: { farmhouse: Farmhouse }) {
             {farmhouse.bedrooms} beds
           </span>
         </div>
-        {pricing?.weeklyNight && (
+        {!!farmhouse.weeklyNight && (
           <p className="text-sm text-gray-600 mb-3">
-            From <span className="gold-text font-semibold">{fmt(pricing.weeklyNight)}</span> / night
+            From <span className="gold-text font-semibold">{fmt(farmhouse.weeklyNight)}</span> / night
           </p>
         )}
         <div className="flex flex-wrap gap-2 mt-auto pt-2 border-t border-gray-100">

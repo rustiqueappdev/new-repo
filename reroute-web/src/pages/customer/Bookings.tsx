@@ -48,7 +48,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 const Bookings: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { showToast } = useToast();
+  const { show } = useToast();
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,8 +76,8 @@ const Bookings: React.FC = () => {
   const filteredBookings = bookings.filter((b) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'cancelled') return b.status === 'cancelled';
-    const checkOut = b.checkOut ? new Date(b.checkOut) : null;
-    const checkIn = b.checkIn ? new Date(b.checkIn) : null;
+    const checkOut = b.checkOutDate ? new Date(b.checkOutDate) : null;
+    const checkIn = b.checkInDate ? new Date(b.checkInDate) : null;
     if (activeTab === 'upcoming') {
       return b.status !== 'cancelled' && checkIn && checkIn >= now;
     }
@@ -92,9 +92,9 @@ const Bookings: React.FC = () => {
     setCancellingId(bookingId);
     try {
       await cancelBooking(bookingId);
-      showToast('Booking cancelled successfully.', 'success');
+      show('Booking cancelled successfully.', 'success');
     } catch (err: any) {
-      showToast(err?.message || 'Failed to cancel booking.', 'error');
+      show(err?.message || 'Failed to cancel booking.', 'error');
     } finally {
       setCancellingId(null);
       setConfirmCancelId(null);
