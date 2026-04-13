@@ -6,42 +6,74 @@ if (!ENCRYPTION_SECRET || ENCRYPTION_SECRET.length < 32) {
   console.warn('⚠️ ENCRYPTION_SECRET not configured. Encrypted fields will show as-is.');
 }
 
+// Fallback key used in older mobile app builds before the .env was set up
+const LEGACY_FALLBACK_KEY = 'reroute-encryption-key-2024-CHANGE-IN-PRODUCTION';
+
 /**
  * Derive encryption key from user ID (matches mobile app logic)
+ * Returns a hex string that is the SHA256 of (userId + secret)
  */
-function deriveKey(userId: string): string {
-  return CryptoJS.SHA256(userId + ENCRYPTION_SECRET).toString();
+function deriveKey(userId: string, secret: string): string {
+  return CryptoJS.SHA256(userId + secret).toString();
 }
 
 /**
- * Decrypt sensitive data encrypted by the mobile app
- * Uses AES-256 with user-specific keys derived from userId + ENCRYPTION_SECRET
+ * Attempt to decrypt using a specific secret.
+ * Returns null if decryption fails or produces empty output.
+ *
+ * Supports two formats:
+ *   enc_v1_<ciphertext>        — legacy passphrase-based AES (no explicit IV)
+ *   enc_v2_<ivHex>:<ciphertext> — current format with explicit random IV and hex key
+ */
+function attemptDecrypt(encryptedText: string, userId: string, secret: string): string | null {
+  try {
+    const key = deriveKey(userId, secret);
+
+    if (encryptedText.startsWith('enc_v2_')) {
+      const payload = encryptedText.slice('enc_v2_'.length);
+      const colonIdx = payload.indexOf(':');
+      if (colonIdx === -1) return null;
+      const ivHex = payload.slice(0, colonIdx);
+      const ciphertext = payload.slice(colonIdx + 1);
+      const iv = CryptoJS.enc.Hex.parse(ivHex);
+      const keyParsed = CryptoJS.enc.Hex.parse(key);
+      const decrypted = CryptoJS.AES.decrypt(ciphertext, keyParsed, { iv });
+      const plainText = decrypted.toString(CryptoJS.enc.Utf8);
+      return plainText || null;
+    } else {
+      // Legacy enc_v1_ — passphrase-based, no explicit IV
+      const encrypted = encryptedText.replace(/^enc_v\d+_/, '');
+      const decrypted = CryptoJS.AES.decrypt(encrypted, key);
+      const plainText = decrypted.toString(CryptoJS.enc.Utf8);
+      return plainText || null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Decrypt sensitive data encrypted by the mobile app.
+ * Tries the current ENCRYPTION_SECRET first, then the legacy fallback key
+ * (used in older app builds before the .env was configured).
  */
 export function decryptSensitiveData(encryptedText: string, userId: string): string {
   if (!encryptedText) return '';
   if (!userId) return encryptedText;
-  if (!ENCRYPTION_SECRET) return encryptedText;
-
-  // If not encrypted, return as-is
   if (!isEncrypted(encryptedText)) return encryptedText;
 
-  try {
-    // Remove version prefix (e.g., "enc_v1_")
-    const encrypted = encryptedText.replace(/^enc_v\d+_/, '');
-    const key = deriveKey(userId);
-    const decrypted = CryptoJS.AES.decrypt(encrypted, key);
-    const plainText = decrypted.toString(CryptoJS.enc.Utf8);
-
-    if (!plainText) {
-      console.warn('Decryption returned empty — possibly wrong key or corrupted data');
-      return encryptedText;
-    }
-
-    return plainText;
-  } catch (error) {
-    console.warn('Decryption failed, showing raw value:', error);
-    return encryptedText;
+  // 1. Try with the current configured secret
+  if (ENCRYPTION_SECRET) {
+    const result = attemptDecrypt(encryptedText, userId, ENCRYPTION_SECRET);
+    if (result) return result;
   }
+
+  // 2. Fall back to the legacy hardcoded key used in older mobile builds
+  const legacyResult = attemptDecrypt(encryptedText, userId, LEGACY_FALLBACK_KEY);
+  if (legacyResult) return legacyResult;
+
+  console.warn('Decryption failed with all known keys for userId:', userId);
+  return encryptedText;
 }
 
 /**
