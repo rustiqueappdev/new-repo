@@ -10,7 +10,9 @@
       "Bash(firebase --version:*)",
       "Bash(npm install)",
       "Bash(npm install:*)",
-      "Bash(npx firebase:*)"
+      "Bash(npx firebase:*)",
+      "Read(//d/reroute/**)",
+      "Bash(node -e ':*)"
     ],
     "deny": [],
     "ask": []
