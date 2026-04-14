@@ -24,8 +24,10 @@ import {
   TextField,
   Alert,
   DialogContentText,
-  Tooltip
+  Tooltip,
+  Popover
 } from '@mui/material';
+import { CalendarMonth, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import {
   Visibility,
   PersonOutline,
@@ -62,7 +64,143 @@ interface FirebaseBooking {
   userId?: string;
   userName?: string;
   userPhone?: string;
+  commission_percentage?: number;
+  razorpayPaymentId?: string;
 }
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAY_NAMES = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+const CalendarPicker: React.FC<{
+  label: string;
+  value: string; // YYYY-MM-DD or ''
+  onChange: (v: string) => void;
+}> = ({ label, value, onChange }) => {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const selected = value ? new Date(value + 'T00:00:00') : null;
+  const [viewDate, setViewDate] = useState<Date>(selected || new Date());
+
+  const open = (e: React.MouseEvent<HTMLElement>) => {
+    setViewDate(selected || new Date());
+    setAnchorEl(e.currentTarget);
+  };
+  const close = () => setAnchorEl(null);
+
+  const pickDay = (day: number) => {
+    const y = viewDate.getFullYear();
+    const m = String(viewDate.getMonth() + 1).padStart(2, '0');
+    const d = String(day).padStart(2, '0');
+    onChange(`${y}-${m}-${d}`);
+    close();
+  };
+
+  const displayLabel = selected
+    ? `${selected.getDate()} ${MONTHS_SHORT[selected.getMonth()]} ${selected.getFullYear()}`
+    : 'Select date';
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const rows: (number | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+
+  const isSelected = (d: number) =>
+    !!selected &&
+    selected.getFullYear() === year &&
+    selected.getMonth() === month &&
+    selected.getDate() === d;
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      <Typography sx={{ fontSize: '0.7rem', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', pl: 0.5 }}>
+        {label}
+      </Typography>
+      <Button
+        onClick={open}
+        startIcon={<CalendarMonth sx={{ fontSize: 18 }} />}
+        sx={{
+          minWidth: 180, justifyContent: 'flex-start', textTransform: 'none', fontWeight: 500,
+          color: selected ? '#111827' : '#9CA3AF', backgroundColor: '#F9FAFB',
+          border: '1px solid transparent', borderRadius: 2, px: 1.5, py: 0.95,
+          '&:hover': { backgroundColor: '#F9FAFB', borderColor: '#E5E7EB' },
+        }}
+      >
+        {displayLabel}
+      </Button>
+      <Popover
+        open={!!anchorEl}
+        anchorEl={anchorEl}
+        onClose={close}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        slotProps={{ paper: { sx: { p: 1.5, borderRadius: 3, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', mt: 0.5 } } }}
+      >
+        <Box sx={{ width: 280 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <IconButton size='small' onClick={() => setViewDate(new Date(year, month - 1, 1))}>
+              <ChevronLeft fontSize='small' />
+            </IconButton>
+            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+              <Select size='small' value={month} onChange={(e) => setViewDate(new Date(year, Number(e.target.value), 1))}
+                sx={{ fontSize: '0.85rem', '& fieldset': { borderColor: 'transparent' } }}>
+                {MONTHS.map((name, i) => <MenuItem key={name} value={i}>{name}</MenuItem>)}
+              </Select>
+              <Select size='small' value={year} onChange={(e) => setViewDate(new Date(Number(e.target.value), month, 1))}
+                sx={{ fontSize: '0.85rem', '& fieldset': { borderColor: 'transparent' } }}>
+                {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+                  <MenuItem key={y} value={y}>{y}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+            <IconButton size='small' onClick={() => setViewDate(new Date(year, month + 1, 1))}>
+              <ChevronRight fontSize='small' />
+            </IconButton>
+          </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.25, mb: 0.5 }}>
+            {DAY_NAMES.map(d => (
+              <Box key={d} sx={{ textAlign: 'center', fontSize: '0.7rem', color: '#9CA3AF', fontWeight: 600, py: 0.5 }}>{d}</Box>
+            ))}
+          </Box>
+          {rows.map((row, ri) => (
+            <Box key={ri} sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.25 }}>
+              {row.map((d, ci) =>
+                d ? (
+                  <Box
+                    key={ci}
+                    onClick={() => pickDay(d)}
+                    sx={{
+                      textAlign: 'center', py: 0.75, fontSize: '0.85rem', cursor: 'pointer', borderRadius: 1.5,
+                      backgroundColor: isSelected(d) ? '#10B981' : 'transparent',
+                      color: isSelected(d) ? '#fff' : '#111827',
+                      fontWeight: isSelected(d) ? 600 : 400,
+                      '&:hover': { backgroundColor: isSelected(d) ? '#10B981' : '#F3F4F6' },
+                    }}
+                  >
+                    {d}
+                  </Box>
+                ) : (
+                  <Box key={ci} />
+                )
+              )}
+            </Box>
+          ))}
+          {selected && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1, pt: 1, borderTop: '1px solid #F3F4F6' }}>
+              <Button size='small' onClick={() => { onChange(''); close(); }} sx={{ textTransform: 'none', color: '#6B7280' }}>
+                Clear
+              </Button>
+            </Box>
+          )}
+        </Box>
+      </Popover>
+    </Box>
+  );
+};
 
 const BookingsManagement: React.FC = () => {
   const { showSuccess, showError, showWarning } = useSnackbar();
@@ -72,6 +210,10 @@ const BookingsManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [farmhouseFilter, setFarmhouseFilter] = useState('all');
+  const [commissionFilter, setCommissionFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -98,17 +240,68 @@ const BookingsManagement: React.FC = () => {
       result = result.filter(b => b.paymentStatus === paymentFilter);
     }
 
+    if (farmhouseFilter !== 'all') {
+      result = result.filter(b => (b.farmhouseName || '') === farmhouseFilter);
+    }
+
+    if (commissionFilter !== 'all') {
+      result = result.filter(b => {
+        const c = b.commission_percentage ?? 10;
+        switch (commissionFilter) {
+          case '0-10': return c >= 0 && c < 10;
+          case '10-20': return c >= 10 && c < 20;
+          case '20-30': return c >= 20 && c < 30;
+          case '30+': return c >= 30;
+          default: return true;
+        }
+      });
+    }
+
+    if (dateFrom) {
+      const from = new Date(dateFrom).getTime();
+      result = result.filter(b => b.checkInDate && new Date(b.checkInDate).getTime() >= from);
+    }
+
+    if (dateTo) {
+      // include the entire 'to' day
+      const to = new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 - 1;
+      result = result.filter(b => b.checkInDate && new Date(b.checkInDate).getTime() <= to);
+    }
+
     setFiltered(result);
-  }, [bookings, statusFilter, paymentFilter]);
+  }, [bookings, statusFilter, paymentFilter, farmhouseFilter, commissionFilter, dateFrom, dateTo]);
 
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      const snapshot = await getDocs(collection(db, 'bookings'));
-      const data = snapshot.docs.map(doc => ({
-        booking_id: doc.id,
-        ...doc.data()
-      })) as FirebaseBooking[];
+      const [bookingsSnap, farmhousesSnap, paymentsSnap] = await Promise.all([
+        getDocs(collection(db, 'bookings')),
+        getDocs(collection(db, 'farmhouses')),
+        getDocs(collection(db, 'payments')),
+      ]);
+
+      const commissionMap: Record<string, number> = {};
+      farmhousesSnap.docs.forEach(d => {
+        const data: any = d.data();
+        commissionMap[d.id] = data.commission_percentage ?? data.commissionPercentage ?? 10;
+      });
+
+      const paymentMap: Record<string, string> = {};
+      paymentsSnap.docs.forEach(d => {
+        const data: any = d.data();
+        const bid = data.bookingId || data.booking_id || d.id;
+        if (bid && data.razorpayPaymentId) paymentMap[bid] = data.razorpayPaymentId;
+      });
+
+      const data = bookingsSnap.docs.map(doc => {
+        const b = { booking_id: doc.id, ...doc.data() } as FirebaseBooking;
+        const fid = (b as any).farmhouseId || (b as any).farmhouse_id;
+        return {
+          ...b,
+          commission_percentage: fid ? commissionMap[fid] ?? 10 : 10,
+          razorpayPaymentId: paymentMap[doc.id] || (b as any).razorpayPaymentId,
+        };
+      });
       setBookings(data);
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -124,7 +317,7 @@ const BookingsManagement: React.FC = () => {
 
   useEffect(() => {
     filterBookings();
-  }, [statusFilter, paymentFilter, bookings, filterBookings]);
+  }, [filterBookings]);
 
   const formatDate = (dateStr: string | undefined) => {
     if (!dateStr) return 'N/A';
@@ -290,6 +483,7 @@ const BookingsManagement: React.FC = () => {
 
     const headers = [
       'Booking ID',
+      'Razorpay Payment ID',
       'User Name',
       'User Email',
       'User Phone',
@@ -309,6 +503,7 @@ const BookingsManagement: React.FC = () => {
 
     const csvData = filtered.map(booking => [
       booking.booking_id || '',
+      booking.razorpayPaymentId || '',
       booking.userName || '',
       booking.userEmail || '',
       booking.userPhone || '',
@@ -422,14 +617,66 @@ const BookingsManagement: React.FC = () => {
                 <MenuItem value='pending'>Pending</MenuItem>
                 <MenuItem value='paid'>Paid</MenuItem>
                 <MenuItem value='refunded'>Refunded</MenuItem>
+                <MenuItem value='failed'>Failed</MenuItem>
               </Select>
             </FormControl>
+
+            <FormControl size='small' sx={{ minWidth: 200 }}>
+              <Select
+                value={farmhouseFilter}
+                onChange={(e) => setFarmhouseFilter(e.target.value)}
+                displayEmpty
+                sx={{ borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } }}
+              >
+                <MenuItem value='all'>All Farmhouses</MenuItem>
+                {Array.from(new Set(bookings.map(b => b.farmhouseName).filter(Boolean) as string[]))
+                  .sort()
+                  .map(name => (
+                    <MenuItem key={name} value={name}>{name}</MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+
+            <FormControl size='small' sx={{ minWidth: 180 }}>
+              <Select
+                value={commissionFilter}
+                onChange={(e) => setCommissionFilter(e.target.value)}
+                displayEmpty
+                sx={{ borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } }}
+              >
+                <MenuItem value='all'>All Commissions</MenuItem>
+                <MenuItem value='0-10'>0% – 10%</MenuItem>
+                <MenuItem value='10-20'>10% – 20%</MenuItem>
+                <MenuItem value='20-30'>20% – 30%</MenuItem>
+                <MenuItem value='30+'>30%+</MenuItem>
+              </Select>
+            </FormControl>
+
+            <CalendarPicker label='From (Check-in)' value={dateFrom} onChange={setDateFrom} />
+            <CalendarPicker label='To (Check-in)' value={dateTo} onChange={setDateTo} />
+
+            {(statusFilter !== 'all' || paymentFilter !== 'all' || farmhouseFilter !== 'all' || commissionFilter !== 'all' || dateFrom || dateTo) && (
+              <Button
+                size='small'
+                onClick={() => {
+                  setStatusFilter('all');
+                  setPaymentFilter('all');
+                  setFarmhouseFilter('all');
+                  setCommissionFilter('all');
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                sx={{ textTransform: 'none', color: '#6B7280' }}
+              >
+                Clear filters
+              </Button>
+            )}
           </Box>
         </Paper>
 
         {filtered.length === 0 ? (
           <EmptyState
-            title={statusFilter !== 'all' || paymentFilter !== 'all' ? 'No bookings match your filters' : 'No bookings yet'}
+            title={statusFilter !== 'all' || paymentFilter !== 'all' || farmhouseFilter !== 'all' || commissionFilter !== 'all' || dateFrom || dateTo ? 'No bookings match your filters' : 'No bookings yet'}
             description={bookings.length === 0 ? 'Bookings will appear here once users make reservations' : 'Try adjusting your filters'}
             icon='search'
           />
@@ -443,6 +690,7 @@ const BookingsManagement: React.FC = () => {
                   <TableCell>Farmhouse</TableCell>
                   <TableCell>Dates</TableCell>
                   <TableCell>Amount</TableCell>
+                  <TableCell>Coupon</TableCell>
                   <TableCell>Payment</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell align='center'>Actions</TableCell>
@@ -455,6 +703,17 @@ const BookingsManagement: React.FC = () => {
                       <Typography sx={{ fontSize: '0.8rem', fontFamily: 'monospace', color: '#6B7280', fontWeight: 500 }}>
                         {booking.booking_id?.substring(0, 8) || 'N/A'}
                       </Typography>
+                      {booking.razorpayPaymentId ? (
+                        <Tooltip title={`Razorpay: ${booking.razorpayPaymentId}`}>
+                          <Typography sx={{ fontSize: '0.68rem', fontFamily: 'monospace', color: '#3B82F6', mt: 0.25 }}>
+                            {booking.razorpayPaymentId}
+                          </Typography>
+                        </Tooltip>
+                      ) : (
+                        <Typography sx={{ fontSize: '0.68rem', color: '#D1D5DB', mt: 0.25 }}>
+                          no payment id
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -500,6 +759,28 @@ const BookingsManagement: React.FC = () => {
                         <Typography sx={{ fontSize: '0.7rem', color: '#10B981', fontWeight: 500 }}>
                           -₹{booking.discountApplied} off
                         </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {booking.couponCode ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                          <Chip
+                            label={booking.couponCode}
+                            size='small'
+                            sx={{
+                              backgroundColor: '#FEF3C7', color: '#92400E', fontWeight: 600,
+                              fontSize: '0.7rem', height: 22, fontFamily: 'monospace',
+                              alignSelf: 'flex-start',
+                            }}
+                          />
+                          {(booking.discountApplied || 0) > 0 && (
+                            <Typography sx={{ fontSize: '0.7rem', color: '#6B7280' }}>
+                              -₹{booking.discountApplied?.toLocaleString()}
+                            </Typography>
+                          )}
+                        </Box>
+                      ) : (
+                        <Typography sx={{ fontSize: '0.8rem', color: '#9CA3AF' }}>—</Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -581,6 +862,11 @@ const BookingsManagement: React.FC = () => {
                 <Box sx={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 1.5 }}>
                   <Typography color='text.secondary'>Booking ID:</Typography>
                   <Typography fontFamily='monospace'>{selectedBooking.booking_id}</Typography>
+
+                  <Typography color='text.secondary'>Razorpay Payment ID:</Typography>
+                  <Typography fontFamily='monospace' sx={{ color: selectedBooking.razorpayPaymentId ? '#3B82F6' : '#9CA3AF' }}>
+                    {selectedBooking.razorpayPaymentId || 'Not available'}
+                  </Typography>
 
                   <Typography color='text.secondary'>Type:</Typography>
                   <Typography>{selectedBooking.bookingType === 'dayuse' ? 'Day Use' : 'Overnight'}</Typography>
