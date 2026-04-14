@@ -54,6 +54,7 @@ interface FirebaseBooking {
   bookingType?: string;
   checkInDate?: string;
   checkOutDate?: string;
+  createdAt?: any;
   farmhouseName?: string;
   farmhouseId?: string;
   farmhouse_id?: string;
@@ -71,6 +72,11 @@ interface FirebaseBooking {
   razorpayPaymentId?: string;
 }
 
+interface FarmhouseOption {
+  id: string;
+  name: string;
+}
+
 const PaymentsCommission: React.FC = () => {
   const { showSuccess, showError } = useSnackbar();
   const [bookings, setBookings] = useState<FirebaseBooking[]>([]);
@@ -78,9 +84,11 @@ const PaymentsCommission: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<FirebaseBooking | null>(null);
+  const [allFarmhouses, setAllFarmhouses] = useState<FarmhouseOption[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [farmhouseFilter, setFarmhouseFilter] = useState('all');
-  const [monthFilter, setMonthFilter] = useState('all'); // 'all' or 'YYYY-MM'
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalCommission: 0,
@@ -103,10 +111,14 @@ const PaymentsCommission: React.FC = () => {
       })) as FirebaseBooking[];
 
       const commissionMap: Record<string, number> = {};
+      const farmhouseList: FarmhouseOption[] = [];
       farmhousesSnapshot.docs.forEach(doc => {
         const data = doc.data();
         commissionMap[doc.id] = data.commission_percentage || 10;
+        const name = data.basicDetails?.name || data.name;
+        if (name) farmhouseList.push({ id: doc.id, name });
       });
+      setAllFarmhouses(farmhouseList.sort((a, b) => a.name.localeCompare(b.name)));
 
       const paymentMap: Record<string, string> = {};
       paymentsSnapshot.docs.forEach(d => {
@@ -197,40 +209,21 @@ const PaymentsCommission: React.FC = () => {
     }
   };
 
-  const getMonthKey = (dateStr?: string): string => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  };
-
-  const formatMonthLabel = (key: string): string => {
-    const [y, m] = key.split('-');
-    const d = new Date(Number(y), Number(m) - 1, 1);
-    return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-  };
-
   const ownerPayoutOf = (b: FirebaseBooking): number =>
     (b.totalPrice || 0) * (1 - (b.commission_percentage || 10) / 100);
   const commissionOf = (b: FirebaseBooking): number =>
     (b.totalPrice || 0) * ((b.commission_percentage || 10) / 100);
 
-  const farmhouseOptions = useMemo(() => {
-    const set = new Set<string>();
-    bookings.forEach(b => { if (b.farmhouseName) set.add(b.farmhouseName); });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [bookings]);
+  // Parse createdAt from either Firestore Timestamp or ISO string to a Date
+  const getBookingDate = (b: FirebaseBooking): Date | null => {
+    if (!b.createdAt) return null;
+    if (typeof b.createdAt === 'string') return new Date(b.createdAt);
+    if (typeof b.createdAt.toDate === 'function') return b.createdAt.toDate();
+    if (b.createdAt.seconds) return new Date(b.createdAt.seconds * 1000);
+    return null;
+  };
 
-  const monthOptions = useMemo(() => {
-    const set = new Set<string>();
-    bookings.forEach(b => {
-      const k = getMonthKey(b.checkInDate);
-      if (k) set.add(k);
-    });
-    return Array.from(set).sort().reverse();
-  }, [bookings]);
-
-  // Paid bookings with search/farmhouse/month filters applied (shared scope for tabs + totals)
+  // Paid bookings with search/farmhouse/date-range filters applied (shared scope for tabs + totals)
   const scopedPaidBookings = useMemo(() => {
     let list = bookings.filter(b => b.paymentStatus === 'paid');
 
@@ -239,13 +232,29 @@ const PaymentsCommission: React.FC = () => {
       list = list.filter(b => (b.farmhouseName || '').toLowerCase().includes(term));
     }
     if (farmhouseFilter !== 'all') {
-      list = list.filter(b => (b.farmhouseName || '') === farmhouseFilter);
+      list = list.filter(b => {
+        const fid = b.farmhouseId || b.farmhouse_id;
+        return fid === farmhouseFilter;
+      });
     }
-    if (monthFilter !== 'all') {
-      list = list.filter(b => getMonthKey(b.checkInDate) === monthFilter);
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      from.setHours(0, 0, 0, 0);
+      list = list.filter(b => {
+        const d = getBookingDate(b);
+        return d !== null && d >= from;
+      });
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      list = list.filter(b => {
+        const d = getBookingDate(b);
+        return d !== null && d <= to;
+      });
     }
     return list;
-  }, [bookings, searchTerm, farmhouseFilter, monthFilter]);
+  }, [bookings, searchTerm, farmhouseFilter, dateFrom, dateTo]);
 
   const filteredBookings = useMemo(() => {
     switch (activeTab) {
@@ -267,8 +276,8 @@ const PaymentsCommission: React.FC = () => {
     return { pendingAmt, paidAmt, commissionAmt, grossRevenue, count: scopedPaidBookings.length };
   }, [scopedPaidBookings]);
 
-  const filtersActive = searchTerm.trim() !== '' || farmhouseFilter !== 'all' || monthFilter !== 'all';
-  const resetFilters = () => { setSearchTerm(''); setFarmhouseFilter('all'); setMonthFilter('all'); };
+  const filtersActive = searchTerm.trim() !== '' || farmhouseFilter !== 'all' || !!dateFrom || !!dateTo;
+  const resetFilters = () => { setSearchTerm(''); setFarmhouseFilter('all'); setDateFrom(''); setDateTo(''); };
 
   const handleExportCSV = () => {
     if (filteredBookings.length === 0) {
@@ -392,25 +401,29 @@ const PaymentsCommission: React.FC = () => {
                 sx={{ borderRadius: 2, fontSize: '0.875rem' }}
               >
                 <MenuItem value='all'>All farmhouses</MenuItem>
-                {farmhouseOptions.map(name => (
-                  <MenuItem key={name} value={name}>{name}</MenuItem>
+                {allFarmhouses.map(fh => (
+                  <MenuItem key={fh.id} value={fh.id}>{fh.name}</MenuItem>
                 ))}
               </Select>
             </FormControl>
-            <FormControl size='small' sx={{ minWidth: 200 }}>
-              <InputLabel>Month (check-in)</InputLabel>
-              <Select
-                label='Month (check-in)'
-                value={monthFilter}
-                onChange={(e) => setMonthFilter(e.target.value)}
-                sx={{ borderRadius: 2, fontSize: '0.875rem' }}
-              >
-                <MenuItem value='all'>All months</MenuItem>
-                {monthOptions.map(key => (
-                  <MenuItem key={key} value={key}>{formatMonthLabel(key)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <TextField
+              size='small'
+              label='From (booking date)'
+              type='date'
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 170, '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: '0.875rem' } }}
+            />
+            <TextField
+              size='small'
+              label='To (booking date)'
+              type='date'
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 170, '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: '0.875rem' } }}
+            />
             {filtersActive && (
               <Button
                 size='small'
@@ -490,9 +503,11 @@ const PaymentsCommission: React.FC = () => {
             <TableBody>
               {filteredBookings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align='center' sx={{ py: 4 }}>
-                    <Typography color='text.secondary'>
-                      {activeTab === 1 
+                  <TableCell colSpan={9} align='center' sx={{ py: 5 }}>
+                    <Typography color='text.secondary' sx={{ fontWeight: 500 }}>
+                      {farmhouseFilter !== 'all'
+                        ? 'Nothing found — no paid bookings for this property with the current filters.'
+                        : activeTab === 1
                         ? 'No pending payouts. All commissions have been paid to owners.'
                         : activeTab === 2
                         ? 'No completed payouts yet.'

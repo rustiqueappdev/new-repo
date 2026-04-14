@@ -75,6 +75,15 @@ const Dashboard: React.FC = () => {
       lightBg: '#FEF2F2',
       iconColor: '#EF4444',
       path: '/coupons'
+    },
+    {
+      title: 'Total Revenue',
+      value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`,
+      icon: <TrendingUp />,
+      gradient: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+      lightBg: '#ECFDF5',
+      iconColor: '#10B981',
+      path: '/revenue'
     }
   ];
 
@@ -124,7 +133,7 @@ const Dashboard: React.FC = () => {
       <Box>
         <Grid container spacing={2.5}>
           {statCards.map((card, index) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4, lg: index < 3 ? 4 : 6 }} key={index}>
+            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 4 }} key={index}>
               <Card
                 sx={{
                   height: '100%',

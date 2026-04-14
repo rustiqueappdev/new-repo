@@ -163,7 +163,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onDrawerToggle }) => {
                     <ListItemButton
                       onClick={() => handleNavigation(item.path)}
                       sx={{
-                        borderRadius: 2,
+                        borderRadius: 0,
                         py: 1,
                         px: 1.5,
                         minHeight: 42,
@@ -297,6 +297,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onDrawerToggle }) => {
             width: drawerWidth,
             boxSizing: 'border-box',
             border: 'none',
+            borderRadius: 0,
           },
         }}
       >
@@ -314,6 +315,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onDrawerToggle }) => {
             width: drawerWidth,
             boxSizing: 'border-box',
             border: 'none',
+            borderRadius: 0,
           },
         }}
         open
