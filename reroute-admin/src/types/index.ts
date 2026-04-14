@@ -95,6 +95,7 @@ export interface Farmhouse {
     };
   };
   
+  propertyType?: 'farmhouse' | 'resort';
   status: 'pending' | 'approved' | 'rejected' | 'pending_approval' | 'active';
   commission_percentage?: number;
   approved_by?: string;

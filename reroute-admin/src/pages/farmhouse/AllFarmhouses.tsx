@@ -96,6 +96,7 @@ interface FarmhouseData {
   commission_percentage?: number;
   commissionPercentage?: number;
   status?: string;
+  propertyType?: 'farmhouse' | 'resort';
   max_guests?: number;
   maxGuests?: number;
   images?: string[];
@@ -133,6 +134,7 @@ const AllFarmhouses: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedFarmhouse, setSelectedFarmhouse] = useState<FarmhouseData | null>(null);
   const [detailsTab, setDetailsTab] = useState(0);
@@ -197,8 +199,12 @@ const AllFarmhouses: React.FC = () => {
       result = result.filter(f => f.status === statusFilter);
     }
 
+    if (typeFilter !== 'all') {
+      result = result.filter(f => (f.propertyType || 'farmhouse') === typeFilter);
+    }
+
     setFiltered(result);
-  }, [farmhouses, searchTerm, statusFilter]);
+  }, [farmhouses, searchTerm, statusFilter, typeFilter]);
 
   useEffect(() => {
     filterFarmhouses();
@@ -522,12 +528,24 @@ const AllFarmhouses: React.FC = () => {
                 <MenuItem value='rejected'>Rejected ({farmhouses.filter(f => f.status === 'rejected').length})</MenuItem>
               </Select>
             </FormControl>
+            <FormControl size='small' sx={{ minWidth: 140 }}>
+              <Select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                displayEmpty
+                sx={{ borderRadius: 2, backgroundColor: '#F9FAFB', '& fieldset': { borderColor: 'transparent' }, '&:hover fieldset': { borderColor: '#E5E7EB' }, '&.Mui-focused fieldset': { borderColor: '#10B981' } }}
+              >
+                <MenuItem value='all'>All Types</MenuItem>
+                <MenuItem value='farmhouse'>Farmhouse ({farmhouses.filter(f => (f.propertyType || 'farmhouse') === 'farmhouse').length})</MenuItem>
+                <MenuItem value='resort'>Resort ({farmhouses.filter(f => f.propertyType === 'resort').length})</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
         </Paper>
 
         {filtered.length === 0 ? (
           <EmptyState
-            title={searchTerm || statusFilter !== 'all' ? 'No farmhouses match your filters' : 'No farmhouses yet'}
+            title={searchTerm || statusFilter !== 'all' || typeFilter !== 'all' ? 'No farmhouses match your filters' : 'No farmhouses yet'}
             description={farmhouses.length === 0 ? 'Farmhouses will appear here once owners list their properties' : 'Try adjusting your search or filters'}
             icon='search'
             actionLabel={farmhouses.length === 0 ? 'Create First Farmhouse' : undefined}
@@ -539,6 +557,7 @@ const AllFarmhouses: React.FC = () => {
               <TableHead>
                 <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
                   <TableCell>Property</TableCell>
+                  <TableCell>Type</TableCell>
                   <TableCell>Rate</TableCell>
                   <TableCell>Commission</TableCell>
                   <TableCell>Status</TableCell>
@@ -554,6 +573,17 @@ const AllFarmhouses: React.FC = () => {
                         <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#111827' }}>{getName(farmhouse)}</Typography>
                         <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>{getLocation(farmhouse)}</Typography>
                       </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={farmhouse.propertyType === 'resort' ? 'Resort' : 'Farmhouse'}
+                        size='small'
+                        sx={{
+                          backgroundColor: farmhouse.propertyType === 'resort' ? '#F3E8FF' : '#ECFDF5',
+                          color: farmhouse.propertyType === 'resort' ? '#7C3AED' : '#059669',
+                          fontWeight: 600, fontSize: '0.7rem', textTransform: 'capitalize',
+                        }}
+                      />
                     </TableCell>
                     <TableCell>
                       <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827' }}>₹{getBaseRate(farmhouse).toLocaleString()}</Typography>

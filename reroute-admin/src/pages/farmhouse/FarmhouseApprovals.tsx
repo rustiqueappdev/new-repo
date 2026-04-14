@@ -191,6 +191,20 @@ const FarmhouseApprovals: React.FC = () => {
                           backdropFilter: 'blur(4px)',
                         }}
                       />
+                      <Chip
+                        label={farmhouse.propertyType === 'resort' ? 'Resort' : 'Farmhouse'}
+                        size='small'
+                        sx={{
+                          position: 'absolute',
+                          top: 12,
+                          right: 12,
+                          backgroundColor: farmhouse.propertyType === 'resort' ? alpha('#7C3AED', 0.9) : alpha('#16A34A', 0.9),
+                          color: '#fff',
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                          backdropFilter: 'blur(4px)',
+                        }}
+                      />
                       <Typography sx={{
                         position: 'absolute',
                         bottom: 12,
