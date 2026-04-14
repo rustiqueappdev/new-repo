@@ -42,8 +42,10 @@ import {
   getFarmhouseDescription,
   getFarmhouseImages,
   getFarmhouseCapacity,
-  getFarmhouseBaseRate,
+  getFarmhouseWeekdayRate,
+  getFarmhouseOvernightWeekdayRate,
   getFarmhouseWeekendRate,
+  getFarmhouseOvernightWeekendRate,
   getFarmhouseAmenities,
   getFarmhouseRules,
   getFarmhouseOwnerId
@@ -342,14 +344,30 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                   <Grid container spacing={2} sx={{ mb: 3 }}>
                     <Grid size={{ xs: 6, md: 3 }}>
                       <Paper sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant='body2' color='text.secondary'>Base Rate</Typography>
-                        <Typography variant='h6'>₹{getFarmhouseBaseRate(farmhouse)}</Typography>
+                        <Typography variant='body2' color='text.secondary'>Weekday</Typography>
+                        <Typography variant='h6'>₹{getFarmhouseWeekdayRate(farmhouse)}</Typography>
+                        <Typography variant='caption' color='text.secondary'>per day</Typography>
                       </Paper>
                     </Grid>
                     <Grid size={{ xs: 6, md: 3 }}>
                       <Paper sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant='body2' color='text.secondary'>Weekend Rate</Typography>
+                        <Typography variant='body2' color='text.secondary'>Overnight Weekday</Typography>
+                        <Typography variant='h6'>₹{getFarmhouseOvernightWeekdayRate(farmhouse)}</Typography>
+                        <Typography variant='caption' color='text.secondary'>per night</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid size={{ xs: 6, md: 3 }}>
+                      <Paper sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant='body2' color='text.secondary'>Weekend</Typography>
                         <Typography variant='h6'>₹{getFarmhouseWeekendRate(farmhouse)}</Typography>
+                        <Typography variant='caption' color='text.secondary'>per day</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid size={{ xs: 6, md: 3 }}>
+                      <Paper sx={{ p: 2, textAlign: 'center' }}>
+                        <Typography variant='body2' color='text.secondary'>Overnight Weekend</Typography>
+                        <Typography variant='h6'>₹{getFarmhouseOvernightWeekendRate(farmhouse)}</Typography>
+                        <Typography variant='caption' color='text.secondary'>per night</Typography>
                       </Paper>
                     </Grid>
                     <Grid size={{ xs: 6, md: 3 }}>

@@ -41,12 +41,10 @@ export interface Farmhouse {
   
   // Pricing nested in mobile app
   pricing?: {
-    weekendDay: string;
-    weekendNight: string;
-    weeklyDay: string;
-    weeklyNight: string;
-    occasionalDay: string;
-    occasionalNight: string;
+    weeklyDay: string;      // Weekday (day use)
+    weeklyNight: string;    // Overnight Weekday
+    weekendDay: string;     // Weekend (day use)
+    weekendNight: string;   // Overnight Weekend
     customPricing?: any[];
   };
   
@@ -199,20 +197,33 @@ export function getFarmhouseCapacity(farmhouse: Farmhouse): number {
   return farmhouse.max_guests || 0;
 }
 
-// Helper function to get base rate
-export function getFarmhouseBaseRate(farmhouse: Farmhouse): number {
-  if (farmhouse.pricing?.weeklyDay) {
-    return parseInt(farmhouse.pricing.weeklyDay) || 0;
-  }
+// Helper: Weekday day-use rate
+export function getFarmhouseWeekdayRate(farmhouse: Farmhouse): number {
+  if (farmhouse.pricing?.weeklyDay) return parseInt(farmhouse.pricing.weeklyDay) || 0;
   return farmhouse.base_rate || 0;
 }
 
-// Helper function to get weekend rate
+// Helper: Overnight weekday rate
+export function getFarmhouseOvernightWeekdayRate(farmhouse: Farmhouse): number {
+  if (farmhouse.pricing?.weeklyNight) return parseInt(farmhouse.pricing.weeklyNight) || 0;
+  return 0;
+}
+
+// Helper: Weekend day-use rate
 export function getFarmhouseWeekendRate(farmhouse: Farmhouse): number {
-  if (farmhouse.pricing?.weekendNight) {
-    return parseInt(farmhouse.pricing.weekendNight) || 0;
-  }
+  if (farmhouse.pricing?.weekendDay) return parseInt(farmhouse.pricing.weekendDay) || 0;
   return farmhouse.weekend_rate || 0;
+}
+
+// Helper: Overnight weekend rate
+export function getFarmhouseOvernightWeekendRate(farmhouse: Farmhouse): number {
+  if (farmhouse.pricing?.weekendNight) return parseInt(farmhouse.pricing.weekendNight) || 0;
+  return 0;
+}
+
+// Legacy alias kept for card display
+export function getFarmhouseBaseRate(farmhouse: Farmhouse): number {
+  return getFarmhouseWeekdayRate(farmhouse);
 }
 
 // Helper function to get amenities as array

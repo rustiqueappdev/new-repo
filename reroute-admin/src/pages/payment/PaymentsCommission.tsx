@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -24,18 +24,24 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  InputAdornment
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
-import { 
-  TrendingUp, 
-  Payment, 
+import {
+  TrendingUp,
+  Payment,
   PendingActions,
   CheckCircle,
   PersonOutline,
   HomeOutlined,
   Visibility,
   Download,
-  SearchOutlined
+  SearchOutlined,
+  FilterAltOutlined,
+  RestartAltOutlined
 } from '@mui/icons-material';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -62,6 +68,7 @@ interface FirebaseBooking {
   status?: string;
   commission_paid_to_owner?: boolean;
   commission_percentage?: number;
+  razorpayPaymentId?: string;
 }
 
 const PaymentsCommission: React.FC = () => {
@@ -72,6 +79,8 @@ const PaymentsCommission: React.FC = () => {
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<FirebaseBooking | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [farmhouseFilter, setFarmhouseFilter] = useState('all');
+  const [monthFilter, setMonthFilter] = useState('all'); // 'all' or 'YYYY-MM'
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalCommission: 0,
@@ -81,29 +90,37 @@ const PaymentsCommission: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      // Fetch bookings
-      const bookingsSnapshot = await getDocs(collection(db, 'bookings'));
+      // Fetch bookings, farmhouses (commission), and payments (Razorpay IDs) in parallel
+      const [bookingsSnapshot, farmhousesSnapshot, paymentsSnapshot] = await Promise.all([
+        getDocs(collection(db, 'bookings')),
+        getDocs(collection(db, 'farmhouses')),
+        getDocs(collection(db, 'payments')),
+      ]);
+
       const bookingsData = bookingsSnapshot.docs.map(doc => ({
         booking_id: doc.id,
         ...doc.data()
       })) as FirebaseBooking[];
 
-      // Fetch farmhouses to get commission percentages
-      const farmhousesSnapshot = await getDocs(collection(db, 'farmhouses'));
       const commissionMap: Record<string, number> = {};
-
       farmhousesSnapshot.docs.forEach(doc => {
         const data = doc.data();
-        // Default to 10% if not set
         commissionMap[doc.id] = data.commission_percentage || 10;
       });
 
-      // Attach commission percentage to each booking
+      const paymentMap: Record<string, string> = {};
+      paymentsSnapshot.docs.forEach(d => {
+        const data: any = d.data();
+        const bid = data.bookingId || data.booking_id || d.id;
+        if (bid && data.razorpayPaymentId) paymentMap[bid] = data.razorpayPaymentId;
+      });
+
       const enrichedBookings = bookingsData.map(booking => {
         const farmhouseId = booking.farmhouseId || booking.farmhouse_id;
         return {
           ...booking,
-          commission_percentage: farmhouseId ? commissionMap[farmhouseId] || 10 : 10
+          commission_percentage: farmhouseId ? commissionMap[farmhouseId] || 10 : 10,
+          razorpayPaymentId: paymentMap[booking.booking_id || ''] || (booking as any).razorpayPaymentId,
         };
       });
 
@@ -180,40 +197,78 @@ const PaymentsCommission: React.FC = () => {
     }
   };
 
-  const getFilteredBookings = () => {
-    let paidBookings = bookings.filter(b => b.paymentStatus === 'paid');
+  const getMonthKey = (dateStr?: string): string => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const formatMonthLabel = (key: string): string => {
+    const [y, m] = key.split('-');
+    const d = new Date(Number(y), Number(m) - 1, 1);
+    return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  };
+
+  const ownerPayoutOf = (b: FirebaseBooking): number =>
+    (b.totalPrice || 0) * (1 - (b.commission_percentage || 10) / 100);
+  const commissionOf = (b: FirebaseBooking): number =>
+    (b.totalPrice || 0) * ((b.commission_percentage || 10) / 100);
+
+  const farmhouseOptions = useMemo(() => {
+    const set = new Set<string>();
+    bookings.forEach(b => { if (b.farmhouseName) set.add(b.farmhouseName); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [bookings]);
+
+  const monthOptions = useMemo(() => {
+    const set = new Set<string>();
+    bookings.forEach(b => {
+      const k = getMonthKey(b.checkInDate);
+      if (k) set.add(k);
+    });
+    return Array.from(set).sort().reverse();
+  }, [bookings]);
+
+  // Paid bookings with search/farmhouse/month filters applied (shared scope for tabs + totals)
+  const scopedPaidBookings = useMemo(() => {
+    let list = bookings.filter(b => b.paymentStatus === 'paid');
 
     if (searchTerm.trim()) {
       const term = searchTerm.trim().toLowerCase();
-      paidBookings = paidBookings.filter(b =>
-        (b.farmhouseName || '').toLowerCase().includes(term)
-      );
+      list = list.filter(b => (b.farmhouseName || '').toLowerCase().includes(term));
     }
-    
+    if (farmhouseFilter !== 'all') {
+      list = list.filter(b => (b.farmhouseName || '') === farmhouseFilter);
+    }
+    if (monthFilter !== 'all') {
+      list = list.filter(b => getMonthKey(b.checkInDate) === monthFilter);
+    }
+    return list;
+  }, [bookings, searchTerm, farmhouseFilter, monthFilter]);
+
+  const filteredBookings = useMemo(() => {
     switch (activeTab) {
-      case 0: // All
-        return paidBookings;
-      case 1: // Pending
-        return paidBookings.filter(b => !b.commission_paid_to_owner);
-      case 2: // Paid
-        return paidBookings.filter(b => b.commission_paid_to_owner);
-      default:
-        return paidBookings;
+      case 1: return scopedPaidBookings.filter(b => !b.commission_paid_to_owner);
+      case 2: return scopedPaidBookings.filter(b => b.commission_paid_to_owner);
+      default: return scopedPaidBookings;
     }
-  };
+  }, [scopedPaidBookings, activeTab]);
 
-  const getSearchedPaidBookings = () => {
-    let paidBookings = bookings.filter(b => b.paymentStatus === 'paid');
-    if (searchTerm.trim()) {
-      const term = searchTerm.trim().toLowerCase();
-      paidBookings = paidBookings.filter(b =>
-        (b.farmhouseName || '').toLowerCase().includes(term)
-      );
-    }
-    return paidBookings;
-  };
+  const scopeTotals = useMemo(() => {
+    const pendingAmt = scopedPaidBookings
+      .filter(b => !b.commission_paid_to_owner)
+      .reduce((s, b) => s + ownerPayoutOf(b), 0);
+    const paidAmt = scopedPaidBookings
+      .filter(b => b.commission_paid_to_owner)
+      .reduce((s, b) => s + ownerPayoutOf(b), 0);
+    const commissionAmt = scopedPaidBookings.reduce((s, b) => s + commissionOf(b), 0);
+    const grossRevenue = scopedPaidBookings.reduce((s, b) => s + (b.totalPrice || 0), 0);
+    return { pendingAmt, paidAmt, commissionAmt, grossRevenue, count: scopedPaidBookings.length };
+  }, [scopedPaidBookings]);
 
-  const filteredBookings = getFilteredBookings();
+  const filtersActive = searchTerm.trim() !== '' || farmhouseFilter !== 'all' || monthFilter !== 'all';
+  const resetFilters = () => { setSearchTerm(''); setFarmhouseFilter('all'); setMonthFilter('all'); };
 
   const handleExportCSV = () => {
     if (filteredBookings.length === 0) {
@@ -222,7 +277,7 @@ const PaymentsCommission: React.FC = () => {
     }
 
     const headers = [
-      'Booking ID', 'User', 'Email', 'Farmhouse', 'Check-in', 'Check-out',
+      'Booking ID', 'Razorpay Payment ID', 'User', 'Email', 'Farmhouse', 'Check-in', 'Check-out',
       'Total Amount', 'Commission %', 'Commission Amount', 'Owner Payout', 'Status'
     ];
 
@@ -232,6 +287,7 @@ const PaymentsCommission: React.FC = () => {
       const ownerPayout = ((b.totalPrice || 0) * (1 - commPct / 100)).toFixed(2);
       return [
         b.booking_id || '',
+        b.razorpayPaymentId || '',
         b.userName || '',
         b.userEmail || '',
         b.farmhouseName || '',
@@ -311,13 +367,14 @@ const PaymentsCommission: React.FC = () => {
 
         {/* Search & Filters */}
         <Paper elevation={0} sx={{ mb: 3, border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Box sx={{ p: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <FilterAltOutlined sx={{ fontSize: 20, color: '#9CA3AF' }} />
             <TextField
               size='small'
-              placeholder='Search by farmhouse name...'
+              placeholder='Search farmhouse...'
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ minWidth: 280, '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: '0.875rem' } }}
+              sx={{ minWidth: 220, '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: '0.875rem' } }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position='start'>
@@ -326,6 +383,44 @@ const PaymentsCommission: React.FC = () => {
                 ),
               }}
             />
+            <FormControl size='small' sx={{ minWidth: 220 }}>
+              <InputLabel>Farmhouse</InputLabel>
+              <Select
+                label='Farmhouse'
+                value={farmhouseFilter}
+                onChange={(e) => setFarmhouseFilter(e.target.value)}
+                sx={{ borderRadius: 2, fontSize: '0.875rem' }}
+              >
+                <MenuItem value='all'>All farmhouses</MenuItem>
+                {farmhouseOptions.map(name => (
+                  <MenuItem key={name} value={name}>{name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size='small' sx={{ minWidth: 200 }}>
+              <InputLabel>Month (check-in)</InputLabel>
+              <Select
+                label='Month (check-in)'
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
+                sx={{ borderRadius: 2, fontSize: '0.875rem' }}
+              >
+                <MenuItem value='all'>All months</MenuItem>
+                {monthOptions.map(key => (
+                  <MenuItem key={key} value={key}>{formatMonthLabel(key)}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {filtersActive && (
+              <Button
+                size='small'
+                startIcon={<RestartAltOutlined sx={{ fontSize: 18 }} />}
+                onClick={resetFilters}
+                sx={{ textTransform: 'none', color: '#6B7280', fontWeight: 600 }}
+              >
+                Reset
+              </Button>
+            )}
             <Box sx={{ flex: 1 }} />
             <Button
               variant='outlined'
@@ -339,21 +434,30 @@ const PaymentsCommission: React.FC = () => {
             </Button>
           </Box>
 
-          {searchTerm.trim() && (() => {
-            const searched = getSearchedPaidBookings();
-            const pendingAmt = searched.filter(b => !b.commission_paid_to_owner).reduce((s, b) => s + ((b.totalPrice || 0) * (1 - (b.commission_percentage || 10) / 100)), 0);
-            const paidAmt = searched.filter(b => b.commission_paid_to_owner).reduce((s, b) => s + ((b.totalPrice || 0) * (1 - (b.commission_percentage || 10) / 100)), 0);
-            return searched.length > 0 ? (
-              <Box sx={{ px: 2, pb: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Chip label={`${searched.length} bookings found`} size='small' color='primary' variant='outlined' />
-                <Chip label={`Pending: ₹${pendingAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} size='small' sx={{ bgcolor: '#FEF3C7', color: '#92400E' }} />
-                <Chip label={`Paid: ₹${paidAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} size='small' sx={{ bgcolor: '#D1FAE5', color: '#065F46' }} />
-              </Box>
-            ) : null;
-          })()}
+          {filtersActive && (
+            <Box sx={{ px: 2, pb: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Chip label={`${scopeTotals.count} bookings`} size='small' color='primary' variant='outlined' />
+              <Chip
+                label={`Gross: ₹${scopeTotals.grossRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                size='small' sx={{ bgcolor: '#EFF6FF', color: '#1D4ED8' }}
+              />
+              <Chip
+                label={`Commission: ₹${scopeTotals.commissionAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                size='small' sx={{ bgcolor: '#ECFDF5', color: '#065F46' }}
+              />
+              <Chip
+                label={`Pending payout: ₹${scopeTotals.pendingAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                size='small' sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 600 }}
+              />
+              <Chip
+                label={`Paid payout: ₹${scopeTotals.paidAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                size='small' sx={{ bgcolor: '#D1FAE5', color: '#065F46' }}
+              />
+            </Box>
+          )}
 
-          <Tabs 
-            value={activeTab} 
+          <Tabs
+            value={activeTab}
             onChange={(_, v) => setActiveTab(v)}
             sx={{
               '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, fontSize: '0.85rem', color: '#6B7280', minHeight: 48 },
@@ -361,9 +465,9 @@ const PaymentsCommission: React.FC = () => {
               '& .MuiTabs-indicator': { backgroundColor: '#10B981' },
             }}
           >
-            <Tab label={`All (${getSearchedPaidBookings().length})`} />
-            <Tab label={`Pending (${getSearchedPaidBookings().filter(b => !b.commission_paid_to_owner).length})`} />
-            <Tab label={`Paid (${getSearchedPaidBookings().filter(b => b.commission_paid_to_owner).length})`} />
+            <Tab label={`All (${scopedPaidBookings.length})`} />
+            <Tab label={`Pending (${scopedPaidBookings.filter(b => !b.commission_paid_to_owner).length})`} />
+            <Tab label={`Paid (${scopedPaidBookings.filter(b => b.commission_paid_to_owner).length})`} />
           </Tabs>
         </Paper>
 
@@ -398,8 +502,9 @@ const PaymentsCommission: React.FC = () => {
                 </TableRow>
               ) : (
                 filteredBookings.map((booking) => {
-                  const commission = (booking.totalPrice || 0) * 0.1;
-                  const ownerPayout = (booking.totalPrice || 0) * 0.9;
+                  const commPct = booking.commission_percentage || 10;
+                  const commission = commissionOf(booking);
+                  const ownerPayout = ownerPayoutOf(booking);
 
                   return (
                     <TableRow key={booking.booking_id} hover sx={{ '&:hover': { backgroundColor: '#FAFAFA' }, '& td': { borderBottom: '1px solid #F3F4F6', py: 1.5 } }}>
@@ -407,6 +512,17 @@ const PaymentsCommission: React.FC = () => {
                         <Typography sx={{ fontSize: '0.8rem', fontFamily: 'monospace', color: '#6B7280', fontWeight: 500 }}>
                           {booking.booking_id?.substring(0, 8) || 'N/A'}
                         </Typography>
+                        {booking.razorpayPaymentId ? (
+                          <Tooltip title={`Razorpay: ${booking.razorpayPaymentId}`}>
+                            <Typography sx={{ fontSize: '0.68rem', fontFamily: 'monospace', color: '#3B82F6', mt: 0.25 }}>
+                              {booking.razorpayPaymentId}
+                            </Typography>
+                          </Tooltip>
+                        ) : (
+                          <Typography sx={{ fontSize: '0.68rem', color: '#D1D5DB', mt: 0.25 }}>
+                            no payment id
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -446,15 +562,15 @@ const PaymentsCommission: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#10B981' }}>
-                          ₹{commission.toLocaleString()}
+                          ₹{Math.round(commission).toLocaleString('en-IN')}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>(10%)</Typography>
+                        <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>({commPct}%)</Typography>
                       </TableCell>
                       <TableCell>
                         <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: '#111827' }}>
-                          ₹{ownerPayout.toLocaleString()}
+                          ₹{Math.round(ownerPayout).toLocaleString('en-IN')}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>(90%)</Typography>
+                        <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>({100 - commPct}%)</Typography>
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -517,6 +633,18 @@ const PaymentsCommission: React.FC = () => {
                   </Typography>
 
                   <Typography variant='subtitle2' color='text.secondary' gutterBottom sx={{ mt: 2 }}>
+                    Razorpay Payment ID
+                  </Typography>
+                  <Typography
+                    variant='body1'
+                    fontFamily='monospace'
+                    gutterBottom
+                    sx={{ color: selectedBooking.razorpayPaymentId ? '#3B82F6' : '#9CA3AF' }}
+                  >
+                    {selectedBooking.razorpayPaymentId || 'Not available'}
+                  </Typography>
+
+                  <Typography variant='subtitle2' color='text.secondary' gutterBottom sx={{ mt: 2 }}>
                     Guest
                   </Typography>
                   <Typography variant='body1' fontWeight='bold'>
@@ -545,14 +673,18 @@ const PaymentsCommission: React.FC = () => {
                       ₹{selectedBooking.totalPrice?.toLocaleString()}
                     </Typography>
                     
-                    <Typography variant='body2' color='success.main'>Commission (10%):</Typography>
-                    <Typography variant='body2' textAlign='right' color='success.main' fontWeight='medium'>
-                      ₹{((selectedBooking.totalPrice || 0) * 0.1).toLocaleString()}
+                    <Typography variant='body2' color='success.main'>
+                      Commission ({selectedBooking.commission_percentage || 10}%):
                     </Typography>
-                    
-                    <Typography variant='body2'>Owner Payout (90%):</Typography>
+                    <Typography variant='body2' textAlign='right' color='success.main' fontWeight='medium'>
+                      ₹{Math.round(commissionOf(selectedBooking)).toLocaleString('en-IN')}
+                    </Typography>
+
+                    <Typography variant='body2'>
+                      Owner Payout ({100 - (selectedBooking.commission_percentage || 10)}%):
+                    </Typography>
                     <Typography variant='body2' textAlign='right' fontWeight='bold'>
-                      ₹{((selectedBooking.totalPrice || 0) * 0.9).toLocaleString()}
+                      ₹{Math.round(ownerPayoutOf(selectedBooking)).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
 
