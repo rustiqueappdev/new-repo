@@ -162,6 +162,7 @@ export interface DashboardStats {
   todayBookings: number;
   weekBookings: number;
   monthBookings: number;
+  totalRevenue: number;
 }
 
 // Helper function to get name from farmhouse (works with both structures)

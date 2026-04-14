@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, LineChart, Line, Legend, AreaChart, Area,
+  Tooltip, LineChart, Line, Legend, AreaChart, Area, ComposedChart,
 } from 'recharts';
 import {
   EventNote, CheckCircleOutline, CancelOutlined, TrendingDown, TrendingUp,
@@ -131,15 +131,17 @@ const KpiCard: React.FC<{
   );
 };
 
-const ChartCard: React.FC<{ title: string; subtitle?: string; children: React.ReactNode; height?: number }> = ({
-  title, subtitle, children, height,
+const ChartCard: React.FC<{ title: string; subtitle?: string; children: React.ReactNode; height?: number; scrollable?: boolean }> = ({
+  title, subtitle, children, height, scrollable,
 }) => (
   <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: COLOR.border, height: height ? height + 80 : undefined }}>
     <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: COLOR.ink, mb: 0.25 }}>{title}</Typography>
     {subtitle && (
       <Typography sx={{ fontSize: '0.75rem', color: COLOR.faint, mb: 2 }}>{subtitle}</Typography>
     )}
-    <Box sx={{ mt: subtitle ? 0 : 1.5 }}>{children}</Box>
+    <Box sx={{ mt: subtitle ? 0 : 1.5, ...(scrollable ? { overflowX: 'auto', pb: 0.5 } : {}) }}>
+      {children}
+    </Box>
   </Paper>
 );
 
@@ -152,6 +154,7 @@ const AnalyticsDashboard: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [coupons, setCoupons] = useState<any[]>([]);
+  const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | '6m' | '1y' | 'all'>('90d');
 
   useEffect(() => {
     (async () => {
@@ -242,27 +245,77 @@ const AnalyticsDashboard: React.FC = () => {
     };
   }, [bookings]);
 
-  // Bookings over time (last 90 days, by createdAt)
+  // Bookings over time — respects selected dateRange
   const bookingsOverTime = useMemo(() => {
-    const buckets: Record<string, { date: string; bookings: number; revenue: number }> = {};
     const now = new Date();
-    for (let i = 89; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
+    const nowMs = now.getTime();
+
+    // Decide bucket granularity
+    const useMonthly = dateRange === '1y' || dateRange === 'all';
+    const useWeekly = dateRange === '6m';
+
+    // Determine start point
+    let startMs: number;
+    if (dateRange === 'all') {
+      const earliest = bookings.reduce((min, b) => b._createdAt && b._createdAt.getTime() < min ? b._createdAt.getTime() : min, nowMs);
+      startMs = earliest < nowMs ? earliest : nowMs - 90 * 86400000;
+    } else {
+      const daysMap: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365 };
+      startMs = nowMs - (daysMap[dateRange] || 90) * 86400000;
+    }
+
+    if (useMonthly) {
+      const start = new Date(startMs);
+      const buckets: { key: string; date: string; bookings: number; revenue: number }[] = [];
+      for (const d = new Date(start.getFullYear(), start.getMonth(), 1); d <= now; d.setMonth(d.getMonth() + 1)) {
+        buckets.push({
+          key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+          date: d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+          bookings: 0, revenue: 0,
+        });
+      }
+      bookings.forEach(b => {
+        if (!b._createdAt) return;
+        const key = `${b._createdAt.getFullYear()}-${String(b._createdAt.getMonth() + 1).padStart(2, '0')}`;
+        const bucket = buckets.find(bk => bk.key === key);
+        if (bucket) { bucket.bookings += 1; if (b.paymentStatus === 'paid') bucket.revenue += b.totalPrice || 0; }
+      });
+      return buckets;
+    }
+
+    if (useWeekly) {
+      const weekCount = Math.ceil((nowMs - startMs) / (7 * 86400000));
+      const buckets = Array.from({ length: weekCount }, (_, i) => {
+        const ws = new Date(nowMs - (weekCount - 1 - i) * 7 * 86400000);
+        ws.setHours(0, 0, 0, 0);
+        const we = new Date(ws.getTime() + 6 * 86400000);
+        we.setHours(23, 59, 59, 999);
+        return { date: ws.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), startMs: ws.getTime(), endMs: we.getTime(), bookings: 0, revenue: 0 };
+      });
+      bookings.forEach(b => {
+        if (!b._createdAt) return;
+        const t = b._createdAt.getTime();
+        const bk = buckets.find(w => t >= w.startMs && t <= w.endMs);
+        if (bk) { bk.bookings += 1; if (b.paymentStatus === 'paid') bk.revenue += b.totalPrice || 0; }
+      });
+      return buckets.map(({ date, bookings, revenue }) => ({ date, bookings, revenue }));
+    }
+
+    // Daily
+    const days = Math.ceil((nowMs - startMs) / 86400000);
+    const buckets: Record<string, { date: string; bookings: number; revenue: number }> = {};
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
       const key = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-      buckets[key] = { date: label, bookings: 0, revenue: 0 };
+      buckets[key] = { date: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), bookings: 0, revenue: 0 };
     }
     bookings.forEach(b => {
       if (!b._createdAt) return;
       const key = b._createdAt.toISOString().slice(0, 10);
-      if (buckets[key]) {
-        buckets[key].bookings += 1;
-        if (b.paymentStatus === 'paid') buckets[key].revenue += b.totalPrice || 0;
-      }
+      if (buckets[key]) { buckets[key].bookings += 1; if (b.paymentStatus === 'paid') buckets[key].revenue += b.totalPrice || 0; }
     });
     return Object.values(buckets);
-  }, [bookings]);
+  }, [bookings, dateRange]);
 
   // Booking status for donut
   const statusData = useMemo(() => {
@@ -392,27 +445,32 @@ const AnalyticsDashboard: React.FC = () => {
     };
   }, [reviews]);
 
-  // New users / new owners (last 12 weeks, weekly buckets)
+  // New users / new owners — weekly buckets matching dateRange
   const userGrowth = useMemo(() => {
-    const weeks: { week: string; users: number; owners: number }[] = [];
     const now = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const start = new Date(now);
-      start.setDate(start.getDate() - i * 7);
-      const label = start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-      weeks.push({ week: label, users: 0, owners: 0 });
-    }
-    const startMs = now.getTime() - 12 * 7 * 86400000;
+    const nowMs = now.getTime();
+    const daysMap: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, 'all': 365 };
+    const rangeDays = daysMap[dateRange] || 90;
+    const weekCount = Math.max(4, Math.ceil(rangeDays / 7));
+    const startMs = nowMs - weekCount * 7 * 86400000;
+
+    const weeks = Array.from({ length: weekCount }, (_, i) => {
+      const ws = new Date(nowMs - (weekCount - 1 - i) * 7 * 86400000);
+      ws.setHours(0, 0, 0, 0);
+      const we = new Date(ws.getTime() + 6 * 86400000);
+      we.setHours(23, 59, 59, 999);
+      return { week: ws.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), startMs: ws.getTime(), endMs: we.getTime(), users: 0, owners: 0 };
+    });
+
     users.forEach(u => {
       if (!u._createdAt || u._createdAt.getTime() < startMs) return;
-      const idx = Math.floor((now.getTime() - u._createdAt.getTime()) / (7 * 86400000));
-      const bucket = 11 - idx;
-      if (bucket < 0 || bucket >= 12) return;
-      if (u.role === 'owner') weeks[bucket].owners += 1;
-      else weeks[bucket].users += 1;
+      const t = u._createdAt.getTime();
+      const bk = weeks.find(w => t >= w.startMs && t <= w.endMs);
+      if (!bk) return;
+      if (u.role === 'owner') bk.owners += 1; else bk.users += 1;
     });
-    return weeks;
-  }, [users]);
+    return weeks.map(({ week, users, owners }) => ({ week, users, owners }));
+  }, [users, dateRange]);
 
   // KYC funnel for owners
   const kycFunnel = useMemo(() => {
@@ -443,13 +501,33 @@ const AnalyticsDashboard: React.FC = () => {
     <MainLayout>
       <Box>
         {/* Header */}
-        <Box sx={{ mb: 3 }}>
-          <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: COLOR.ink, letterSpacing: '-0.02em' }}>
-            Analytics Overview
-          </Typography>
-          <Typography sx={{ fontSize: '0.85rem', color: COLOR.faint, mt: 0.5 }}>
-            Performance, customer behaviour, and operational health at a glance
-          </Typography>
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: COLOR.ink, letterSpacing: '-0.02em' }}>
+              Analytics Overview
+            </Typography>
+            <Typography sx={{ fontSize: '0.85rem', color: COLOR.faint, mt: 0.5 }}>
+              Performance, customer behaviour, and operational health at a glance
+            </Typography>
+          </Box>
+          {/* Date range selector */}
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+            {([['7d','7 days'],['30d','30 days'],['90d','90 days'],['6m','6 months'],['1y','1 year'],['all','All time']] as const).map(([key, label]) => (
+              <Chip
+                key={key}
+                label={label}
+                onClick={() => setDateRange(key)}
+                size='small'
+                sx={{
+                  cursor: 'pointer', fontWeight: 600, fontSize: '0.72rem',
+                  bgcolor: dateRange === key ? COLOR.green : COLOR.rule,
+                  color: dateRange === key ? '#fff' : COLOR.muted,
+                  border: dateRange === key ? `1px solid ${COLOR.green}` : '1px solid transparent',
+                  '&:hover': { bgcolor: dateRange === key ? COLOR.green : '#E5E7EB' },
+                }}
+              />
+            ))}
+          </Box>
         </Box>
 
         {/* ============ PERFORMANCE OVERVIEW ============ */}
@@ -515,100 +593,125 @@ const AnalyticsDashboard: React.FC = () => {
         </Grid>
 
         {/* ============ TRENDS ============ */}
-        <SectionHeader title='Trends' subtitle='Volume and growth over time' />
-        <Grid container spacing={2.5}>
-          <Grid size={{ xs: 12, lg: 8 }}>
-            <ChartCard title='Bookings & Revenue (Last 90 days)' subtitle='By booking creation date'>
-              <ResponsiveContainer width='100%' height={280}>
-                <AreaChart data={bookingsOverTime}>
-                  <defs>
-                    <linearGradient id='bkGrad' x1='0' y1='0' x2='0' y2='1'>
-                      <stop offset='5%' stopColor={COLOR.green} stopOpacity={0.25} />
-                      <stop offset='95%' stopColor={COLOR.green} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray='3 3' stroke={COLOR.rule} vertical={false} />
-                  <XAxis dataKey='date' tick={{ fontSize: 11, fill: COLOR.faint }} interval={Math.max(0, Math.floor(bookingsOverTime.length / 10) - 1)} />
-                  <YAxis tick={{ fontSize: 11, fill: COLOR.faint }} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Area type='monotone' dataKey='bookings' stroke={COLOR.green} strokeWidth={2.5} fill='url(#bkGrad)' />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 4 }}>
-            <ChartCard title='User Growth' subtitle='New signups, last 12 weeks'>
-              <ResponsiveContainer width='100%' height={280}>
-                <LineChart data={userGrowth}>
-                  <CartesianGrid strokeDasharray='3 3' stroke={COLOR.rule} vertical={false} />
-                  <XAxis dataKey='week' tick={{ fontSize: 10, fill: COLOR.faint }} interval={1} />
-                  <YAxis tick={{ fontSize: 11, fill: COLOR.faint }} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} iconType='circle' />
-                  <Line type='monotone' dataKey='users' stroke={COLOR.blue} strokeWidth={2.5} dot={false} name='Customers' />
-                  <Line type='monotone' dataKey='owners' stroke={COLOR.purple} strokeWidth={2.5} dot={false} name='Owners' />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-        </Grid>
+        <SectionHeader title='Trends' subtitle='Scroll horizontally to explore historical data' />
+        {(() => {
+          const minBarW = dateRange === '7d' ? 80 : dateRange === '30d' ? 44 : dateRange === '90d' ? 22 : 36;
+          const chartW = Math.max(bookingsOverTime.length * minBarW, 560);
+          const maxRev = Math.max(...bookingsOverTime.map(d => d.revenue), 1);
+          const maxBk = Math.max(...bookingsOverTime.map(d => d.bookings), 1);
+          const wkChartW = Math.max(userGrowth.length * 52, 400);
+          return (
+            <Grid container spacing={2.5}>
+              <Grid size={{ xs: 12, lg: 8 }}>
+                <ChartCard
+                  title='Bookings & Revenue'
+                  subtitle={`By booking date · ${bookingsOverTime.length} ${dateRange === 'all' || dateRange === '1y' ? 'months' : dateRange === '6m' ? 'weeks' : 'days'} · scroll to explore`}
+                  scrollable
+                >
+                  <Box sx={{ width: chartW }}>
+                    <ComposedChart width={chartW} height={280} data={bookingsOverTime} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id='bkGrad' x1='0' y1='0' x2='0' y2='1'>
+                          <stop offset='5%' stopColor={COLOR.green} stopOpacity={0.3} />
+                          <stop offset='95%' stopColor={COLOR.green} stopOpacity={0.02} />
+                        </linearGradient>
+                        <linearGradient id='revGrad' x1='0' y1='0' x2='0' y2='1'>
+                          <stop offset='5%' stopColor={COLOR.blue} stopOpacity={0.2} />
+                          <stop offset='95%' stopColor={COLOR.blue} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray='3 3' stroke={COLOR.rule} vertical={false} />
+                      <XAxis dataKey='date' tick={{ fontSize: 10, fill: COLOR.faint }} interval={Math.max(0, Math.floor(bookingsOverTime.length / 14) - 1)} />
+                      <YAxis yAxisId='left' tick={{ fontSize: 10, fill: COLOR.faint }} domain={[0, maxBk + 1]} allowDecimals={false} width={32} />
+                      <YAxis yAxisId='right' orientation='right' tick={{ fontSize: 10, fill: COLOR.faint }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} domain={[0, maxRev * 1.1]} width={52} />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        formatter={(value: any, name: string) =>
+                          name === 'Revenue' ? [fmtINR(value), 'Revenue'] : [value, 'Bookings']
+                        }
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} iconType='circle' />
+                      <Area yAxisId='left' type='monotone' dataKey='bookings' name='Bookings' stroke={COLOR.green} strokeWidth={2} fill='url(#bkGrad)' />
+                      <Area yAxisId='right' type='monotone' dataKey='revenue' name='Revenue' stroke={COLOR.blue} strokeWidth={2} fill='url(#revGrad)' strokeDasharray='4 2' />
+                    </ComposedChart>
+                  </Box>
+                </ChartCard>
+              </Grid>
+              <Grid size={{ xs: 12, lg: 4 }}>
+                <ChartCard title='User Growth' subtitle='New signups by week · scroll to explore' scrollable>
+                  <Box sx={{ width: wkChartW }}>
+                    <LineChart width={wkChartW} height={280} data={userGrowth} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray='3 3' stroke={COLOR.rule} vertical={false} />
+                      <XAxis dataKey='week' tick={{ fontSize: 10, fill: COLOR.faint }} interval={Math.max(0, Math.floor(userGrowth.length / 8) - 1)} />
+                      <YAxis tick={{ fontSize: 10, fill: COLOR.faint }} allowDecimals={false} width={28} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} iconType='circle' />
+                      <Line type='monotone' dataKey='users' stroke={COLOR.blue} strokeWidth={2.5} dot={false} name='Customers' />
+                      <Line type='monotone' dataKey='owners' stroke={COLOR.purple} strokeWidth={2.5} dot={false} name='Owners' />
+                    </LineChart>
+                  </Box>
+                </ChartCard>
+              </Grid>
+            </Grid>
+          );
+        })()}
 
         {/* ============ PATTERNS ============ */}
         <SectionHeader title='Patterns' subtitle='When and how customers book' />
         <Grid container spacing={2.5}>
           <Grid size={{ xs: 12, md: 6 }}>
             <ChartCard title='Booking Status' subtitle='Distribution by current state'>
-              <ResponsiveContainer width='100%' height={260}>
-                <PieChart>
-                  <Pie data={statusData} dataKey='value' cx='50%' cy='50%' innerRadius={60} outerRadius={100} paddingAngle={2} stroke='#fff' strokeWidth={2}
-                    label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                    {statusData.map((entry, i) => (
-                      <Cell key={i} fill={STATUS_COLORS[entry.name] || PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
-                </PieChart>
-              </ResponsiveContainer>
+              <PieChart width={340} height={240} style={{ margin: '0 auto' }}>
+                <Pie data={statusData} dataKey='value' cx='50%' cy='45%' innerRadius={56} outerRadius={95} paddingAngle={3} stroke='#fff' strokeWidth={2}>
+                  {statusData.map((entry, i) => (
+                    <Cell key={i} fill={STATUS_COLORS[entry.name] || PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: any, n: string) => [v, n]} />
+                <Legend iconType='circle' iconSize={9} wrapperStyle={{ fontSize: 12, paddingTop: 4 }} />
+              </PieChart>
             </ChartCard>
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <ChartCard title='Booking Type' subtitle='Overnight vs Day-use'>
-              <ResponsiveContainer width='100%' height={260}>
-                <PieChart>
-                  <Pie data={typeData} dataKey='value' cx='50%' cy='50%' innerRadius={60} outerRadius={100} paddingAngle={2} stroke='#fff' strokeWidth={2}
-                    label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                    {typeData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
-                </PieChart>
-              </ResponsiveContainer>
+              <PieChart width={340} height={240} style={{ margin: '0 auto' }}>
+                <Pie data={typeData} dataKey='value' cx='50%' cy='45%' innerRadius={56} outerRadius={95} paddingAngle={3} stroke='#fff' strokeWidth={2}>
+                  {typeData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: any, n: string) => [v, n]} />
+                <Legend iconType='circle' iconSize={9} wrapperStyle={{ fontSize: 12, paddingTop: 4 }} />
+              </PieChart>
             </ChartCard>
           </Grid>
 
           <Grid size={{ xs: 12, md: 6 }}>
-            <ChartCard title='Day of Week' subtitle='Check-ins by weekday'>
-              <ResponsiveContainer width='100%' height={260}>
-                <BarChart data={dowData}>
-                  <CartesianGrid strokeDasharray='3 3' stroke={COLOR.rule} vertical={false} />
-                  <XAxis dataKey='day' tick={{ fontSize: 12, fill: COLOR.faint }} />
-                  <YAxis tick={{ fontSize: 12, fill: COLOR.faint }} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey='bookings' fill={COLOR.green} radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartCard title='Day of Week' subtitle='Check-ins by weekday — peak days at a glance'>
+              <BarChart width={500} height={240} data={dowData} style={{ margin: '0 auto' }}>
+                <CartesianGrid strokeDasharray='3 3' stroke={COLOR.rule} vertical={false} />
+                <XAxis dataKey='day' tick={{ fontSize: 12, fill: COLOR.faint }} />
+                <YAxis tick={{ fontSize: 11, fill: COLOR.faint }} allowDecimals={false} width={28} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [v, 'Check-ins']} />
+                <Bar dataKey='bookings' name='Check-ins' radius={[5, 5, 0, 0]}>
+                  {dowData.map((entry, i) => (
+                    <Cell key={i} fill={entry.bookings === Math.max(...dowData.map(d => d.bookings)) ? COLOR.green : COLOR.blueBg.replace('FF','CC')} />
+                  ))}
+                </Bar>
+              </BarChart>
             </ChartCard>
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <ChartCard title='Seasonality' subtitle='Check-ins by month'>
-              <ResponsiveContainer width='100%' height={260}>
-                <BarChart data={monthData}>
-                  <CartesianGrid strokeDasharray='3 3' stroke={COLOR.rule} vertical={false} />
-                  <XAxis dataKey='month' tick={{ fontSize: 12, fill: COLOR.faint }} />
-                  <YAxis tick={{ fontSize: 12, fill: COLOR.faint }} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey='bookings' fill={COLOR.purple} radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartCard title='Seasonality' subtitle='Check-ins by month — identify peak seasons'>
+              <BarChart width={500} height={240} data={monthData} style={{ margin: '0 auto' }}>
+                <CartesianGrid strokeDasharray='3 3' stroke={COLOR.rule} vertical={false} />
+                <XAxis dataKey='month' tick={{ fontSize: 11, fill: COLOR.faint }} />
+                <YAxis tick={{ fontSize: 11, fill: COLOR.faint }} allowDecimals={false} width={28} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [v, 'Check-ins']} />
+                <Bar dataKey='bookings' name='Check-ins' radius={[5, 5, 0, 0]}>
+                  {monthData.map((entry, i) => (
+                    <Cell key={i} fill={entry.bookings === Math.max(...monthData.map(d => d.bookings)) ? COLOR.purple : '#E9D5FF'} />
+                  ))}
+                </Bar>
+              </BarChart>
             </ChartCard>
           </Grid>
         </Grid>

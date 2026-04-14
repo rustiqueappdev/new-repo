@@ -448,7 +448,19 @@ const AllFarmhouses: React.FC = () => {
     return farmhouse.basicDetails?.locationText || farmhouse.locationText || farmhouse.location || 'N/A';
   };
 
-  const getBaseRate = (farmhouse: FarmhouseData) => {
+  const getAverageRate = (farmhouse: FarmhouseData) => {
+    const p = farmhouse.pricing;
+    if (p) {
+      const prices = [
+        Number(p.weeklyDay) || 0,
+        Number(p.weeklyNight) || 0,
+        Number(p.weekendDay) || 0,
+        Number(p.weekendNight) || 0,
+      ].filter(v => v > 0);
+      if (prices.length > 0) {
+        return Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+      }
+    }
     return farmhouse.base_rate || farmhouse.baseRate || 0;
   };
 
@@ -457,7 +469,7 @@ const AllFarmhouses: React.FC = () => {
   };
 
   const getMaxGuests = (farmhouse: FarmhouseData) => {
-    return farmhouse.max_guests || farmhouse.maxGuests || 0;
+    return Number(farmhouse.basicDetails?.capacity) || farmhouse.max_guests || farmhouse.maxGuests || 0;
   };
 
   if (loading) {
@@ -558,7 +570,7 @@ const AllFarmhouses: React.FC = () => {
                 <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
                   <TableCell>Property</TableCell>
                   <TableCell>Type</TableCell>
-                  <TableCell>Rate</TableCell>
+                  <TableCell>Avg Rate</TableCell>
                   <TableCell>Commission</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Capacity</TableCell>
@@ -586,7 +598,7 @@ const AllFarmhouses: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827' }}>₹{getBaseRate(farmhouse).toLocaleString()}</Typography>
+                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827' }}>₹{getAverageRate(farmhouse).toLocaleString()}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography sx={{ fontSize: '0.85rem', fontWeight: 500, color: '#6B7280' }}>{getCommission(farmhouse)}%</Typography>
@@ -1038,7 +1050,7 @@ const AllFarmhouses: React.FC = () => {
                       <AttachMoney sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
                       <Typography color='text.secondary' variant='h6'>No pricing details available</Typography>
                       <Typography color='text.secondary' variant='body2'>
-                        Base rate: ₹{getBaseRate(selectedFarmhouse).toLocaleString()}/night
+                        Avg rate: ₹{getAverageRate(selectedFarmhouse).toLocaleString()}/night
                       </Typography>
                     </Box>
                   )}

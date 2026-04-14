@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getCountFromServer } from 'firebase/firestore';
+import { collection, query, where, getCountFromServer, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { DashboardStats } from '../types';
 
@@ -12,7 +12,8 @@ export const useDashboardStats = () => {
     activeCoupons: 0,
     todayBookings: 0,
     weekBookings: 0,
-    monthBookings: 0
+    monthBookings: 0,
+    totalRevenue: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -32,22 +33,30 @@ export const useDashboardStats = () => {
           activeCoupons
         ] = await Promise.all([
           getCountFromServer(farmhousesRef),
-          getCountFromServer(query(farmhousesRef, where('status', '==', 'pending_approval'))),
+          getCountFromServer(query(farmhousesRef, where('status', '==', 'pending'))),
           getCountFromServer(usersRef),
           getCountFromServer(bookingsRef),
           getCountFromServer(query(couponsRef, where('is_active', '==', true)))
         ]);
 
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const todayISO = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+        const weekAgoISO = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString();
+        const monthAgoISO = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).toISOString();
 
-        const [todayBookings, weekBookings, monthBookings] = await Promise.all([
-          getCountFromServer(query(bookingsRef, where('created_at', '>=', today))),
-          getCountFromServer(query(bookingsRef, where('created_at', '>=', weekAgo))),
-          getCountFromServer(query(bookingsRef, where('created_at', '>=', monthAgo)))
+        const [todayBookings, weekBookings, monthBookings, paidBookingsSnap] = await Promise.all([
+          getCountFromServer(query(bookingsRef, where('createdAt', '>=', todayISO))),
+          getCountFromServer(query(bookingsRef, where('createdAt', '>=', weekAgoISO))),
+          getCountFromServer(query(bookingsRef, where('createdAt', '>=', monthAgoISO))),
+          getDocs(query(bookingsRef, where('status', '==', 'paid')))
         ]);
+
+        let totalRevenue = 0;
+        paidBookingsSnap.forEach((doc) => {
+          const data = doc.data();
+          const price = Number(data.totalPrice ?? data.total_price ?? data.amount ?? 0);
+          totalRevenue += price;
+        });
 
         setStats({
           totalFarmhouses: totalFarmhouses.data().count,
@@ -57,7 +66,8 @@ export const useDashboardStats = () => {
           activeCoupons: activeCoupons.data().count,
           todayBookings: todayBookings.data().count,
           weekBookings: weekBookings.data().count,
-          monthBookings: monthBookings.data().count
+          monthBookings: monthBookings.data().count,
+          totalRevenue
         });
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);

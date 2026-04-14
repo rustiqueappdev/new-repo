@@ -12,7 +12,8 @@
       "Bash(npm install:*)",
       "Bash(npx firebase:*)",
       "Read(//d/reroute/**)",
-      "Bash(node -e ':*)"
+      "Bash(node -e ':*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []
