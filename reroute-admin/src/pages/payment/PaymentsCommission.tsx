@@ -28,7 +28,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  TableSortLabel
 } from '@mui/material';
 import {
   TrendingUp,
@@ -89,6 +90,7 @@ const PaymentsCommission: React.FC = () => {
   const [farmhouseFilter, setFarmhouseFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalCommission: 0,
@@ -253,8 +255,12 @@ const PaymentsCommission: React.FC = () => {
         return d !== null && d <= to;
       });
     }
-    return list;
-  }, [bookings, searchTerm, farmhouseFilter, dateFrom, dateTo]);
+    return [...list].sort((a, b) => {
+      const aTime = getBookingDate(a)?.getTime() ?? 0;
+      const bTime = getBookingDate(b)?.getTime() ?? 0;
+      return sortOrder === 'desc' ? bTime - aTime : aTime - bTime;
+    });
+  }, [bookings, searchTerm, farmhouseFilter, dateFrom, dateTo, sortOrder]);
 
   const filteredBookings = useMemo(() => {
     switch (activeTab) {
@@ -490,6 +496,15 @@ const PaymentsCommission: React.FC = () => {
             <TableHead>
               <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
                 <TableCell>Booking</TableCell>
+                <TableCell>
+                  <TableSortLabel
+                    active={true}
+                    direction={sortOrder}
+                    onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
+                  >
+                    Paid On
+                  </TableSortLabel>
+                </TableCell>
                 <TableCell>User</TableCell>
                 <TableCell>Farmhouse</TableCell>
                 <TableCell>Dates</TableCell>
@@ -503,7 +518,7 @@ const PaymentsCommission: React.FC = () => {
             <TableBody>
               {filteredBookings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align='center' sx={{ py: 5 }}>
+                  <TableCell colSpan={10} align='center' sx={{ py: 5 }}>
                     <Typography color='text.secondary' sx={{ fontWeight: 500 }}>
                       {farmhouseFilter !== 'all'
                         ? 'Nothing found — no paid bookings for this property with the current filters.'
@@ -538,6 +553,14 @@ const PaymentsCommission: React.FC = () => {
                             no payment id
                           </Typography>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ fontSize: '0.8rem', color: '#374151', whiteSpace: 'nowrap' }}>
+                          {(() => {
+                            const d = getBookingDate(booking);
+                            return d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+                          })()}
+                        </Typography>
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
