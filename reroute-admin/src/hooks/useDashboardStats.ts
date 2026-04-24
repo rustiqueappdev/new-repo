@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getCountFromServer, getDocs } from 'firebase/firestore';
+import { collection, query, where, getCountFromServer, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { DashboardStats } from '../types';
 
@@ -40,15 +40,15 @@ export const useDashboardStats = () => {
         ]);
 
         const now = new Date();
-        const todayISO = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-        const weekAgoISO = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString();
-        const monthAgoISO = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).toISOString();
+        const todayTs = Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+        const weekAgoTs = Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7));
+        const monthAgoTs = Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30));
 
         const [todayBookings, weekBookings, monthBookings, paidBookingsSnap] = await Promise.all([
-          getCountFromServer(query(bookingsRef, where('createdAt', '>=', todayISO))),
-          getCountFromServer(query(bookingsRef, where('createdAt', '>=', weekAgoISO))),
-          getCountFromServer(query(bookingsRef, where('createdAt', '>=', monthAgoISO))),
-          getDocs(query(bookingsRef, where('status', '==', 'paid')))
+          getCountFromServer(query(bookingsRef, where('createdAt', '>=', todayTs))),
+          getCountFromServer(query(bookingsRef, where('createdAt', '>=', weekAgoTs))),
+          getCountFromServer(query(bookingsRef, where('createdAt', '>=', monthAgoTs))),
+          getDocs(query(bookingsRef, where('paymentStatus', '==', 'paid')))
         ]);
 
         let totalRevenue = 0;

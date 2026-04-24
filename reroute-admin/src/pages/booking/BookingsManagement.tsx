@@ -268,6 +268,11 @@ const BookingsManagement: React.FC = () => {
       result = result.filter(b => b.checkInDate && new Date(b.checkInDate).getTime() <= to);
     }
 
+    result = [...result].sort((a, b) => {
+      const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+      const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+      return bTime - aTime;
+    });
     setFiltered(result);
   }, [bookings, statusFilter, paymentFilter, farmhouseFilter, commissionFilter, dateFrom, dateTo]);
 
