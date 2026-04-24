@@ -25,7 +25,8 @@ import {
   Alert,
   DialogContentText,
   Tooltip,
-  Popover
+  Popover,
+  TableSortLabel
 } from '@mui/material';
 import { CalendarMonth, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import {
@@ -214,6 +215,7 @@ const BookingsManagement: React.FC = () => {
   const [commissionFilter, setCommissionFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -271,10 +273,10 @@ const BookingsManagement: React.FC = () => {
     result = [...result].sort((a, b) => {
       const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
       const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
-      return bTime - aTime;
+      return sortOrder === 'desc' ? bTime - aTime : aTime - bTime;
     });
     setFiltered(result);
-  }, [bookings, statusFilter, paymentFilter, farmhouseFilter, commissionFilter, dateFrom, dateTo]);
+  }, [bookings, statusFilter, paymentFilter, farmhouseFilter, commissionFilter, dateFrom, dateTo, sortOrder]);
 
   const fetchBookings = async () => {
     try {
@@ -691,6 +693,15 @@ const BookingsManagement: React.FC = () => {
               <TableHead>
                 <TableRow sx={{ '& th': { backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5 } }}>
                   <TableCell>Booking</TableCell>
+                  <TableCell>
+                    <TableSortLabel
+                      active={true}
+                      direction={sortOrder}
+                      onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
+                    >
+                      Booked On
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell>User</TableCell>
                   <TableCell>Farmhouse</TableCell>
                   <TableCell>Dates</TableCell>
@@ -719,6 +730,15 @@ const BookingsManagement: React.FC = () => {
                           no payment id
                         </Typography>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: '0.8rem', color: '#374151', whiteSpace: 'nowrap' }}>
+                        {booking.createdAt?.toDate
+                          ? formatDate(booking.createdAt.toDate().toISOString())
+                          : booking.createdAt?.seconds
+                          ? formatDate(new Date(booking.createdAt.seconds * 1000).toISOString())
+                          : 'N/A'}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
