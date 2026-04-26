@@ -8,7 +8,9 @@
       "Bash(netstat:*)",
       "Bash(cmd.exe //c \"taskkill //PID 25744 //F\")",
       "Bash(cmd.exe /c \"taskkill /PID 25744 /F\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm run *)",
+      "Bash(firebase deploy *)"
     ],
     "deny": [],
     "ask": []
