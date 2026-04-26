@@ -214,19 +214,22 @@ const ReviewManagement: React.FC = () => {
       setDeleting(true);
       await deleteDoc(doc(db, 'reviews', reviewToDelete.review_id));
 
-      // Add audit trail
-      await addDoc(collection(db, 'audit_trail'), {
-        action: 'review_deleted',
-        entity_type: 'review',
-        entity_id: reviewToDelete.review_id,
-        performed_by: currentUser?.email || 'admin',
-        details: {
-          review_rating: reviewToDelete.rating,
-          user_name: reviewToDelete.userName,
-          farmhouse_name: reviewToDelete.farmhouseName
-        },
-        timestamp: serverTimestamp()
-      });
+      try {
+        await addDoc(collection(db, 'audit_trail'), {
+          action: 'review_deleted',
+          entity_type: 'review',
+          entity_id: reviewToDelete.review_id,
+          performed_by: currentUser?.email || 'admin',
+          details: {
+            review_rating: reviewToDelete.rating,
+            user_name: reviewToDelete.userName,
+            farmhouse_name: reviewToDelete.farmhouseName
+          },
+          timestamp: serverTimestamp()
+        });
+      } catch (auditError) {
+        console.warn('Audit trail write failed (permission issue):', auditError);
+      }
 
       showSuccess('Review deleted successfully');
       fetchReviews();
