@@ -363,19 +363,22 @@ const BookingsManagement: React.FC = () => {
         updatedAt: serverTimestamp()
       });
 
-      // Audit trail
-      await addDoc(collection(db, 'audit_trail'), {
-        action: 'booking_updated',
-        entity_type: 'booking',
-        entity_id: selectedBooking.booking_id,
-        performed_by: currentUser?.email || 'admin',
-        details: {
-          booking_id: selectedBooking.booking_id,
-          user_name: selectedBooking.userName,
-          changes: editData
-        },
-        timestamp: serverTimestamp()
-      });
+      try {
+        await addDoc(collection(db, 'audit_trail'), {
+          action: 'booking_updated',
+          entity_type: 'booking',
+          entity_id: selectedBooking.booking_id,
+          performed_by: currentUser?.email || 'admin',
+          details: {
+            booking_id: selectedBooking.booking_id,
+            user_name: selectedBooking.userName,
+            changes: editData
+          },
+          timestamp: serverTimestamp()
+        });
+      } catch (auditError) {
+        console.warn('Audit trail write failed (permission issue):', auditError);
+      }
 
       showSuccess('Booking updated successfully');
       fetchBookings();
@@ -411,19 +414,22 @@ const BookingsManagement: React.FC = () => {
         updatedAt: serverTimestamp()
       });
 
-      // Audit trail
-      await addDoc(collection(db, 'audit_trail'), {
-        action: 'booking_cancelled',
-        entity_type: 'booking',
-        entity_id: selectedBooking.booking_id,
-        performed_by: currentUser?.email || 'admin',
-        details: {
-          booking_id: selectedBooking.booking_id,
-          user_name: selectedBooking.userName,
-          reason: cancelReason
-        },
-        timestamp: serverTimestamp()
-      });
+      try {
+        await addDoc(collection(db, 'audit_trail'), {
+          action: 'booking_cancelled',
+          entity_type: 'booking',
+          entity_id: selectedBooking.booking_id,
+          performed_by: currentUser?.email || 'admin',
+          details: {
+            booking_id: selectedBooking.booking_id,
+            user_name: selectedBooking.userName,
+            reason: cancelReason
+          },
+          timestamp: serverTimestamp()
+        });
+      } catch (auditError) {
+        console.warn('Audit trail write failed (permission issue):', auditError);
+      }
 
       showSuccess('Booking cancelled successfully');
       fetchBookings();
@@ -455,20 +461,23 @@ const BookingsManagement: React.FC = () => {
         updatedAt: serverTimestamp()
       });
 
-      // Audit trail
-      await addDoc(collection(db, 'audit_trail'), {
-        action: 'refund_processed',
-        entity_type: 'booking',
-        entity_id: selectedBooking.booking_id,
-        performed_by: currentUser?.email || 'admin',
-        details: {
-          booking_id: selectedBooking.booking_id,
-          user_name: selectedBooking.userName,
-          refund_amount: refundAmount,
-          original_amount: selectedBooking.totalPrice
-        },
-        timestamp: serverTimestamp()
-      });
+      try {
+        await addDoc(collection(db, 'audit_trail'), {
+          action: 'refund_processed',
+          entity_type: 'booking',
+          entity_id: selectedBooking.booking_id,
+          performed_by: currentUser?.email || 'admin',
+          details: {
+            booking_id: selectedBooking.booking_id,
+            user_name: selectedBooking.userName,
+            refund_amount: refundAmount,
+            original_amount: selectedBooking.totalPrice
+          },
+          timestamp: serverTimestamp()
+        });
+      } catch (auditError) {
+        console.warn('Audit trail write failed (permission issue):', auditError);
+      }
 
       showSuccess(`Refund of ₹${refundAmount.toLocaleString()} processed successfully`);
       fetchBookings();

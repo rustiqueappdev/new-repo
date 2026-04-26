@@ -397,14 +397,17 @@ const AllFarmhouses: React.FC = () => {
         approved_by: currentUser?.email || 'admin'
       });
 
-      // Add audit trail
-      await addDoc(collection(db, 'audit_trail'), {
-        action: 'farmhouse_approved',
-        entity_type: 'farmhouse',
-        entity_id: farmhouseId,
-        performed_by: currentUser?.email || 'admin',
-        timestamp: serverTimestamp()
-      });
+      try {
+        await addDoc(collection(db, 'audit_trail'), {
+          action: 'farmhouse_approved',
+          entity_type: 'farmhouse',
+          entity_id: farmhouseId,
+          performed_by: currentUser?.email || 'admin',
+          timestamp: serverTimestamp()
+        });
+      } catch (auditError) {
+        console.warn('Audit trail write failed (permission issue):', auditError);
+      }
 
       fetchFarmhouses();
       showSuccess('Farmhouse approved');
@@ -423,14 +426,17 @@ const AllFarmhouses: React.FC = () => {
         updated_at: serverTimestamp()
       });
 
-      // Add audit trail
-      await addDoc(collection(db, 'audit_trail'), {
-        action: 'farmhouse_rejected',
-        entity_type: 'farmhouse',
-        entity_id: farmhouseId,
-        performed_by: currentUser?.email || 'admin',
-        timestamp: serverTimestamp()
-      });
+      try {
+        await addDoc(collection(db, 'audit_trail'), {
+          action: 'farmhouse_rejected',
+          entity_type: 'farmhouse',
+          entity_id: farmhouseId,
+          performed_by: currentUser?.email || 'admin',
+          timestamp: serverTimestamp()
+        });
+      } catch (auditError) {
+        console.warn('Audit trail write failed (permission issue):', auditError);
+      }
 
       fetchFarmhouses();
       showSuccess('Farmhouse rejected');
@@ -1016,8 +1022,7 @@ const AllFarmhouses: React.FC = () => {
                                 <TableRow sx={{ '& th': { fontWeight: 600, color: '#6B7280', fontSize: '0.75rem', textTransform: 'uppercase' } }}>
                                   <TableCell>Occasion</TableCell>
                                   <TableCell>Date</TableCell>
-                                  <TableCell align='right'>Day Price</TableCell>
-                                  <TableCell align='right'>Night Price</TableCell>
+                                  <TableCell align='right'>Price</TableCell>
                                 </TableRow>
                               </TableHead>
                               <TableBody>
@@ -1032,10 +1037,7 @@ const AllFarmhouses: React.FC = () => {
                                       </Typography>
                                     </TableCell>
                                     <TableCell align='right'>
-                                      <Typography variant='body2' fontWeight='bold'>₹{cp.dayPrice || 'N/A'}</Typography>
-                                    </TableCell>
-                                    <TableCell align='right'>
-                                      <Typography variant='body2' fontWeight='bold'>₹{cp.nightPrice || 'N/A'}</Typography>
+                                      <Typography variant='body2' fontWeight='bold'>₹{cp.dayPrice || cp.nightPrice || 'N/A'}</Typography>
                                     </TableCell>
                                   </TableRow>
                                 ))}
