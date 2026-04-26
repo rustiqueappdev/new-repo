@@ -50,10 +50,10 @@ function getToken(u: UserRecord): string | undefined {
   return u.fcmToken || u.fcm_token || u.pushToken || u.deviceToken;
 }
 
-async function getTokensForRecipientType(
+async function getRecipientsForType(
   recipientType: string,
   recipientId?: string
-): Promise<string[]> {
+): Promise<{ tokens: string[]; userIds: string[] }> {
   const usersSnap = await db.collection('users').get();
   const allUsers: UserRecord[] = usersSnap.docs.map((doc) => ({
     id: doc.id,
@@ -98,9 +98,36 @@ async function getTokensForRecipientType(
     filtered = [];
   }
 
-  return filtered
-    .map((u) => getToken(u))
-    .filter((t): t is string => Boolean(t));
+  return {
+    tokens: filtered.map((u) => getToken(u)).filter((t): t is string => Boolean(t)),
+    userIds: filtered.map((u) => u.id),
+  };
+}
+
+async function saveNotificationsForUsers(
+  userIds: string[],
+  title: string,
+  body: string,
+  data: Record<string, string>
+): Promise<void> {
+  const CHUNK = 499;
+  for (let i = 0; i < userIds.length; i += CHUNK) {
+    const chunk = userIds.slice(i, i + CHUNK);
+    const batch = db.batch();
+    for (const userId of chunk) {
+      const ref = db.collection('notifications').doc();
+      batch.set(ref, {
+        userId,
+        title,
+        body,
+        data,
+        type: 'promotion',
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
 }
 
 export const sendCommunicationNotification = functions.firestore
@@ -110,10 +137,21 @@ export const sendCommunicationNotification = functions.firestore
     if (!comm) return null;
 
     try {
-      const tokens = await getTokensForRecipientType(
+      const { tokens, userIds } = await getRecipientsForType(
         comm.recipientType,
         comm.recipientId
       );
+
+      const notifData = {
+        communicationId: context.params.communicationId,
+        type: comm.type || 'general',
+        timestamp: new Date().toISOString(),
+      };
+
+      // Save to Firestore for in-app notification list
+      if (userIds.length > 0) {
+        await saveNotificationsForUsers(userIds, comm.title || 'New Message', comm.message || '', notifData);
+      }
 
       if (tokens.length === 0) {
         console.log(`No FCM tokens for recipientType: ${comm.recipientType}`);
@@ -128,11 +166,7 @@ export const sendCommunicationNotification = functions.firestore
         tokens,
         comm.title || 'New Message',
         comm.message || '',
-        {
-          communicationId: context.params.communicationId,
-          type: comm.type || 'general',
-          timestamp: new Date().toISOString(),
-        }
+        notifData
       );
 
       console.log(`Sent ${successCount} notifications, ${failureCount} failed`);
@@ -213,20 +247,32 @@ export const sendBookingStatusNotification = functions.firestore
 
       if (!body) return null;
 
+      const notifData = {
+        bookingId: context.params.bookingId,
+        type: 'booking_update',
+        bookingStatus: after.bookingStatus || '',
+        paymentStatus: after.paymentStatus || '',
+      };
+
       await messaging.send({
         token: fcmToken,
         notification: { title, body },
-        data: {
-          bookingId: context.params.bookingId,
-          type: 'booking_update',
-          bookingStatus: after.bookingStatus || '',
-          paymentStatus: after.paymentStatus || '',
-        },
+        data: notifData,
         android: {
           priority: 'high',
           notification: { sound: 'default', channelId: 'reroute_notifications' },
         },
         apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+      });
+
+      await db.collection('notifications').add({
+        userId,
+        title,
+        body,
+        data: notifData,
+        type: 'booking',
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       return true;
