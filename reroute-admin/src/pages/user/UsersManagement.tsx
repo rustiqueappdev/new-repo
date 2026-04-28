@@ -77,8 +77,8 @@ const UsersManagement: React.FC = () => {
         return {
           user_id: doc.id,
           name: userData.name || userData.displayName || 'Unknown',
-          email: userData.email || 'No email',
-          phone: userData.phone || userData.phoneNumber || '',
+          email: userData.email || userData.emailAddress || userData.email_id || userData.userEmail || '',
+          phone: userData.phone || userData.phoneNumber || userData.mobile || '',
           role: userData.role || 'user',
           kyc_status: userData.kyc_status || userData.kycStatus || undefined,
           is_active: userData.is_active !== undefined ? userData.is_active : true,
@@ -288,25 +288,6 @@ const UsersManagement: React.FC = () => {
               />
             )}
           </Box>
-          <Button
-            variant='contained'
-            startIcon={<Add />}
-            onClick={openCreateDialog}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              borderRadius: 2,
-              px: 3,
-              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-              boxShadow: 'none',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
-              },
-            }}
-          >
-            Add User
-          </Button>
         </Box>
 
         {error && users.length === 0 && (
@@ -364,8 +345,6 @@ const UsersManagement: React.FC = () => {
             title={searchTerm || roleFilter !== 'all' ? 'No users match your filters' : 'No users found'}
             description={users.length === 0 ? 'Users will appear here once they register through the mobile app' : 'Try adjusting your search or filters'}
             icon='search'
-            actionLabel={users.length === 0 ? 'Create First User' : undefined}
-            onAction={users.length === 0 ? openCreateDialog : undefined}
           />
         ) : (
           <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
@@ -398,7 +377,7 @@ const UsersManagement: React.FC = () => {
                           </Box>
                           <Box>
                             <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: '#111827' }}>{user.name}</Typography>
-                            <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>{user.email}</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>{user.email || '—'}</Typography>
                           </Box>
                         </Box>
                       </TableCell>

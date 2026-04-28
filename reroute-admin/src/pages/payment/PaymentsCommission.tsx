@@ -71,6 +71,7 @@ interface FirebaseBooking {
   commission_paid_to_owner?: boolean;
   commission_percentage?: number;
   razorpayPaymentId?: string;
+  razorpayPaymentStatus?: string;
 }
 
 interface FarmhouseOption {
@@ -122,19 +123,26 @@ const PaymentsCommission: React.FC = () => {
       });
       setAllFarmhouses(farmhouseList.sort((a, b) => a.name.localeCompare(b.name)));
 
-      const paymentMap: Record<string, string> = {};
+      const paymentMap: Record<string, { id: string; status?: string }> = {};
       paymentsSnapshot.docs.forEach(d => {
         const data: any = d.data();
         const bid = data.bookingId || data.booking_id || d.id;
-        if (bid && data.razorpayPaymentId) paymentMap[bid] = data.razorpayPaymentId;
+        if (bid && data.razorpayPaymentId) {
+          paymentMap[bid] = {
+            id: data.razorpayPaymentId,
+            status: data.razorpayPaymentStatus || data.razorpayStatus || data.payment_status || data.status
+          };
+        }
       });
 
       const enrichedBookings = bookingsData.map(booking => {
         const farmhouseId = booking.farmhouseId || booking.farmhouse_id;
+        const paymentInfo = paymentMap[booking.booking_id || ''];
         return {
           ...booking,
           commission_percentage: farmhouseId ? commissionMap[farmhouseId] || 10 : 10,
-          razorpayPaymentId: paymentMap[booking.booking_id || ''] || (booking as any).razorpayPaymentId,
+          razorpayPaymentId: paymentInfo?.id || (booking as any).razorpayPaymentId,
+          razorpayPaymentStatus: paymentInfo?.status || (booking as any).razorpayPaymentStatus || booking.paymentStatus,
         };
       });
 
@@ -151,8 +159,26 @@ const PaymentsCommission: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  const isPaidStatus = (b: FirebaseBooking) =>
+    b.paymentStatus === 'paid' || b.paymentStatus === 'captured' ||
+    b.razorpayPaymentStatus === 'captured' || b.razorpayPaymentStatus === 'paid';
+
+  const getRazorpayStatusInfo = (b: FirebaseBooking): { label: string; bg: string; color: string } => {
+    const status = b.razorpayPaymentStatus || b.paymentStatus || '';
+    switch (status.toLowerCase()) {
+      case 'captured': return { label: 'Captured', bg: '#ECFDF5', color: '#059669' };
+      case 'paid': return { label: 'Paid', bg: '#ECFDF5', color: '#059669' };
+      case 'authorized': return { label: 'Authorized', bg: '#EFF6FF', color: '#2563EB' };
+      case 'refunded': return { label: 'Refunded', bg: '#FFF7ED', color: '#D97706' };
+      case 'failed': return { label: 'Failed', bg: '#FEF2F2', color: '#DC2626' };
+      case 'created': return { label: 'Created', bg: '#F3F4F6', color: '#6B7280' };
+      case 'pending': return { label: 'Pending', bg: '#FFFBEB', color: '#D97706' };
+      default: return { label: status || 'Unknown', bg: '#F3F4F6', color: '#6B7280' };
+    }
+  };
+
   const calculateStats = (data: FirebaseBooking[]) => {
-    const paidBookings = data.filter(b => b.paymentStatus === 'paid');
+    const paidBookings = data.filter(isPaidStatus);
     const totalRevenue = paidBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
 
     // Calculate total commission using actual farmhouse commission percentages
@@ -162,8 +188,7 @@ const PaymentsCommission: React.FC = () => {
     }, 0);
 
     // Calculate pending payouts (amount owed to owners)
-    const pendingPayouts = paidBookings
-      .filter(b => !b.commission_paid_to_owner)
+    const pendingPayouts = data.filter(isPaidStatus).filter(b => !b.commission_paid_to_owner)
       .reduce((sum, b) => {
         const commission = (b.commission_percentage || 10) / 100;
         const ownerPayout = (b.totalPrice || 0) * (1 - commission);
@@ -171,8 +196,7 @@ const PaymentsCommission: React.FC = () => {
       }, 0);
 
     // Calculate completed payouts (amount already paid to owners)
-    const completedPayouts = paidBookings
-      .filter(b => b.commission_paid_to_owner)
+    const completedPayouts = data.filter(isPaidStatus).filter(b => b.commission_paid_to_owner)
       .reduce((sum, b) => {
         const commission = (b.commission_percentage || 10) / 100;
         const ownerPayout = (b.totalPrice || 0) * (1 - commission);
@@ -227,7 +251,7 @@ const PaymentsCommission: React.FC = () => {
 
   // Paid bookings with search/farmhouse/date-range filters applied (shared scope for tabs + totals)
   const scopedPaidBookings = useMemo(() => {
-    let list = bookings.filter(b => b.paymentStatus === 'paid');
+    let list = bookings.filter(isPaidStatus);
 
     if (searchTerm.trim()) {
       const term = searchTerm.trim().toLowerCase();
@@ -611,15 +635,27 @@ const PaymentsCommission: React.FC = () => {
                         <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>({100 - commPct}%)</Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={booking.commission_paid_to_owner ? 'Paid' : 'Pending'}
-                          size='small'
-                          sx={{
-                            backgroundColor: booking.commission_paid_to_owner ? '#ECFDF5' : '#FFFBEB',
-                            color: booking.commission_paid_to_owner ? '#059669' : '#D97706',
-                            fontWeight: 600, fontSize: '0.7rem',
-                          }}
-                        />
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          {(() => {
+                            const info = getRazorpayStatusInfo(booking);
+                            return (
+                              <Chip
+                                label={info.label}
+                                size='small'
+                                sx={{ backgroundColor: info.bg, color: info.color, fontWeight: 600, fontSize: '0.7rem' }}
+                              />
+                            );
+                          })()}
+                          <Chip
+                            label={booking.commission_paid_to_owner ? 'Payout Done' : 'Payout Pending'}
+                            size='small'
+                            sx={{
+                              backgroundColor: booking.commission_paid_to_owner ? '#F0FDF4' : '#FFFBEB',
+                              color: booking.commission_paid_to_owner ? '#166534' : '#92400E',
+                              fontWeight: 500, fontSize: '0.65rem',
+                            }}
+                          />
+                        </Box>
                       </TableCell>
                       <TableCell align='center'>
                         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center' }}>

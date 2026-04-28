@@ -81,6 +81,8 @@ const CommunicationCenter: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [recipientType, setRecipientType] = useState('all_users');
+  const [specificUserId, setSpecificUserId] = useState('');
+  const [specificOwnerId, setSpecificOwnerId] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -117,20 +119,17 @@ const CommunicationCenter: React.FC = () => {
 
       // Get recipient count
       let recipientCount = 0;
-      if (recipientType === 'all_users' || recipientType === 'active_users') {
+      if (recipientType === 'all_users') {
         const usersSnap = await getDocs(collection(db, 'users'));
-        if (recipientType === 'active_users') {
-          recipientCount = usersSnap.docs.filter(doc => doc.data().is_active).length;
-        } else {
-          recipientCount = usersSnap.size;
-        }
+        recipientCount = usersSnap.docs.filter(doc => doc.data().role !== 'owner' && doc.data().role !== 'admin').length;
       } else if (recipientType === 'all_owners') {
         const usersSnap = await getDocs(collection(db, 'users'));
         recipientCount = usersSnap.docs.filter(doc => doc.data().role === 'owner').length;
-      } else if (recipientType === 'farmhouse_owners') {
-        const farmhousesSnap = await getDocs(collection(db, 'farmhouses'));
-        const ownerIds = new Set(farmhousesSnap.docs.map(doc => doc.data().ownerId || doc.data().owner_id));
-        recipientCount = ownerIds.size;
+      } else if (recipientType === 'all') {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        recipientCount = usersSnap.docs.filter(doc => doc.data().role !== 'admin').length;
+      } else if (recipientType === 'specific_user' || recipientType === 'specific_owner') {
+        recipientCount = 1;
       }
 
       await addDoc(collection(db, 'communications'), {
@@ -141,7 +140,9 @@ const CommunicationCenter: React.FC = () => {
         sentBy: currentUser?.email || 'admin',
         recipientCount: recipientCount,
         type: 'admin_message',
-        notificationSent: false
+        notificationSent: false,
+        ...(recipientType === 'specific_user' && specificUserId ? { targetUserId: specificUserId } : {}),
+        ...(recipientType === 'specific_owner' && specificOwnerId ? { targetOwnerId: specificOwnerId } : {}),
       });
 
       setSubject('');
@@ -170,12 +171,13 @@ const CommunicationCenter: React.FC = () => {
   const getRecipientIcon = (type: string) => {
     switch (type) {
       case 'all_users':
-      case 'active_users':
         return <Group />;
       case 'all_owners':
-      case 'farmhouse_owners':
         return <Store />;
+      case 'all':
+        return <Group />;
       case 'specific_user':
+      case 'specific_owner':
         return <Person />;
       default:
         return <Group />;
@@ -184,18 +186,12 @@ const CommunicationCenter: React.FC = () => {
 
   const getRecipientLabel = (type: string) => {
     switch (type) {
-      case 'all_users':
-        return 'All Users';
-      case 'all_owners':
-        return 'All Owners';
-      case 'active_users':
-        return 'Active Users Only';
-      case 'farmhouse_owners':
-        return 'Farmhouse Owners';
-      case 'specific_user':
-        return 'Specific User';
-      default:
-        return type;
+      case 'all_users': return 'All Users';
+      case 'all_owners': return 'All Owners';
+      case 'specific_user': return 'Specific User';
+      case 'specific_owner': return 'Specific Owner';
+      case 'all': return 'Everyone';
+      default: return type;
     }
   };
 
@@ -237,26 +233,49 @@ const CommunicationCenter: React.FC = () => {
                       All Owners
                     </Box>
                   </MenuItem>
-                  <MenuItem value='farmhouse_owners'>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Store fontSize='small' />
-                      Farmhouse Owners Only
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value='active_users'>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Group fontSize='small' />
-                      Active Users Only
-                    </Box>
-                  </MenuItem>
                   <MenuItem value='specific_user'>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Person fontSize='small' />
                       Specific User
                     </Box>
                   </MenuItem>
+                  <MenuItem value='specific_owner'>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Person fontSize='small' />
+                      Specific Owner
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value='all'>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Group fontSize='small' />
+                      All (Everyone)
+                    </Box>
+                  </MenuItem>
                 </Select>
               </FormControl>
+
+              {recipientType === 'specific_user' && (
+                <TextField
+                  fullWidth
+                  label='User Email or ID *'
+                  value={specificUserId}
+                  onChange={(e) => setSpecificUserId(e.target.value)}
+                  size='small'
+                  sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  placeholder='Enter user email or user ID'
+                />
+              )}
+              {recipientType === 'specific_owner' && (
+                <TextField
+                  fullWidth
+                  label='Owner Email or ID *'
+                  value={specificOwnerId}
+                  onChange={(e) => setSpecificOwnerId(e.target.value)}
+                  size='small'
+                  sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  placeholder='Enter owner email or user ID'
+                />
+              )}
 
               <TextField
                 fullWidth

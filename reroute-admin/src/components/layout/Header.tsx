@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState as useStateHeader, useEffect as useEffectHeader } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -12,14 +12,26 @@ import {
   useTheme,
   useMediaQuery,
   alpha,
-  Divider
+  Divider,
+  Badge,
+  Popover,
+  List,
+  ListItem,
+  ListItemText,
+  CircularProgress,
+  Chip
 } from '@mui/material';
 import {
   Logout,
   Menu as MenuIcon,
   NotificationsNoneOutlined,
-  SearchOutlined
+  SearchOutlined,
+  Home,
+  CheckCircle,
+  HourglassEmpty
 } from '@mui/icons-material';
+import { collection, getDocs, query, where, orderBy, limit, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 const drawerWidth = 272;
 
@@ -41,6 +53,16 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/communications': { title: 'Communications', subtitle: 'Send notifications' },
 };
 
+interface AdminNotification {
+  id: string;
+  type: 'pending_approval' | 'farmhouse_updated' | 'other';
+  farmhouse_name?: string;
+  farmhouse_id?: string;
+  message: string;
+  read: boolean;
+  created_at?: any;
+}
+
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -48,6 +70,104 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const [notifAnchorEl, setNotifAnchorEl] = useStateHeader<null | HTMLElement>(null);
+  const [notifications, setNotifications] = useStateHeader<AdminNotification[]>([]);
+  const [notifLoading, setNotifLoading] = useStateHeader(false);
+  const [unreadCount, setUnreadCount] = useStateHeader(0);
+
+  const fetchNotifications = async () => {
+    try {
+      setNotifLoading(true);
+      const items: AdminNotification[] = [];
+
+      // Pending farmhouses → "sent for approval" notifications
+      const pendingQ = query(collection(db, 'farmhouses'), where('status', '==', 'pending'));
+      const pendingSnap = await getDocs(pendingQ);
+      pendingSnap.docs.forEach(d => {
+        const data = d.data();
+        const name = data.basicDetails?.name || data.name || 'Unnamed';
+        items.push({
+          id: `pending_${d.id}`,
+          type: 'pending_approval',
+          farmhouse_id: d.id,
+          farmhouse_name: name,
+          message: `${name} submitted for approval`,
+          read: false,
+          created_at: data.created_at || data.createdAt
+        });
+      });
+
+      // Recent admin_notifications (farmhouse detail updates)
+      try {
+        const updatesQ = query(
+          collection(db, 'admin_notifications'),
+          orderBy('created_at', 'desc'),
+          limit(15)
+        );
+        const updatesSnap = await getDocs(updatesQ);
+        updatesSnap.docs.forEach(d => {
+          const data = d.data();
+          items.push({
+            id: d.id,
+            type: data.type || 'farmhouse_updated',
+            farmhouse_id: data.farmhouse_id,
+            farmhouse_name: data.farmhouse_name,
+            message: data.message || 'Farmhouse details updated',
+            read: data.read || false,
+            created_at: data.created_at
+          });
+        });
+      } catch {}
+
+      // Sort: unread first, then by created_at desc
+      items.sort((a, b) => {
+        if (a.read !== b.read) return a.read ? 1 : -1;
+        return 0;
+      });
+
+      setNotifications(items);
+      setUnreadCount(items.filter(n => !n.read).length);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  useEffectHeader(() => {
+    fetchNotifications();
+    // Refresh every 60s
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleNotifOpen = (e: React.MouseEvent<HTMLElement>) => {
+    setNotifAnchorEl(e.currentTarget);
+    fetchNotifications();
+  };
+
+  const handleNotifClose = () => setNotifAnchorEl(null);
+
+  const markAllRead = async () => {
+    try {
+      const batch = writeBatch(db);
+      const updatesQ = query(collection(db, 'admin_notifications'), where('read', '==', false));
+      const snap = await getDocs(updatesQ);
+      snap.docs.forEach(d => batch.update(d.ref, { read: true }));
+      await batch.commit();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch {}
+  };
+
+  const formatNotifTime = (ts: any) => {
+    if (!ts) return '';
+    try {
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch { return ''; }
+  };
 
   const pageInfo = pageTitles[location.pathname] || { title: 'Dashboard', subtitle: '' };
 
@@ -139,6 +259,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
           <IconButton
             size='small'
+            onClick={handleNotifOpen}
             sx={{
               color: '#6B7280',
               backgroundColor: alpha('#000', 0.04),
@@ -147,8 +268,102 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               height: 36,
             }}
           >
-            <NotificationsNoneOutlined sx={{ fontSize: 20 }} />
+            <Badge badgeContent={unreadCount || null} color='error' max={99}>
+              <NotificationsNoneOutlined sx={{ fontSize: 20 }} />
+            </Badge>
           </IconButton>
+
+          <Popover
+            open={Boolean(notifAnchorEl)}
+            anchorEl={notifAnchorEl}
+            onClose={handleNotifClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            PaperProps={{
+              sx: {
+                mt: 1, width: 360, maxHeight: 480, overflow: 'hidden',
+                borderRadius: 2.5, boxShadow: '0 10px 40px rgba(0,0,0,0.14)',
+                border: '1px solid', borderColor: alpha('#000', 0.06),
+              }
+            }}
+          >
+            <Box sx={{ px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F3F4F6' }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827' }}>Notifications</Typography>
+              {unreadCount > 0 && (
+                <Typography
+                  onClick={markAllRead}
+                  sx={{ fontSize: '0.75rem', color: '#10B981', fontWeight: 600, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                >
+                  Mark all read
+                </Typography>
+              )}
+            </Box>
+            {notifLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                <CircularProgress size={28} sx={{ color: '#10B981' }} />
+              </Box>
+            ) : notifications.length === 0 ? (
+              <Box sx={{ py: 4, textAlign: 'center' }}>
+                <NotificationsNoneOutlined sx={{ fontSize: 40, color: '#E5E7EB', mb: 1 }} />
+                <Typography sx={{ color: '#9CA3AF', fontSize: '0.875rem' }}>No notifications</Typography>
+              </Box>
+            ) : (
+              <List dense sx={{ maxHeight: 400, overflowY: 'auto', p: 0 }}>
+                {notifications.map((notif) => (
+                  <ListItem
+                    key={notif.id}
+                    sx={{
+                      py: 1.5, px: 2,
+                      backgroundColor: notif.read ? 'transparent' : alpha('#10B981', 0.04),
+                      borderBottom: '1px solid #F9FAFB',
+                      cursor: notif.type === 'pending_approval' ? 'pointer' : 'default',
+                      '&:hover': { backgroundColor: '#F9FAFB' },
+                      alignItems: 'flex-start', gap: 1.5
+                    }}
+                    onClick={() => {
+                      if (notif.type === 'pending_approval') {
+                        navigate('/farmhouse-approvals');
+                        handleNotifClose();
+                      }
+                    }}
+                  >
+                    <Box sx={{
+                      width: 32, height: 32, borderRadius: '50%', flexShrink: 0, mt: 0.25,
+                      backgroundColor: notif.type === 'pending_approval' ? '#FFFBEB' : '#EFF6FF',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: notif.type === 'pending_approval' ? '#D97706' : '#2563EB'
+                    }}>
+                      {notif.type === 'pending_approval' ? <HourglassEmpty sx={{ fontSize: 16 }} /> : <Home sx={{ fontSize: 16 }} />}
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: '0.82rem', color: '#111827', fontWeight: notif.read ? 400 : 600, lineHeight: 1.4 }}>
+                        {notif.message}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, mt: 0.5, alignItems: 'center' }}>
+                        <Chip
+                          label={notif.type === 'pending_approval' ? 'Pending Approval' : 'Details Updated'}
+                          size='small'
+                          sx={{
+                            height: 18, fontSize: '0.62rem', fontWeight: 600,
+                            backgroundColor: notif.type === 'pending_approval' ? '#FFFBEB' : '#EFF6FF',
+                            color: notif.type === 'pending_approval' ? '#D97706' : '#2563EB',
+                          }}
+                        />
+                        {notif.created_at && (
+                          <Typography sx={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
+                            {formatNotifTime(notif.created_at)}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                    {!notif.read && (
+                      <Box sx={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#10B981', flexShrink: 0, mt: 0.75 }} />
+                    )}
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Popover>
 
           <Box
             onClick={handleMenu}
