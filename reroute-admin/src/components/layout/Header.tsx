@@ -24,7 +24,6 @@ import {
   Logout,
   Menu as MenuIcon,
   NotificationsNoneOutlined,
-  SearchOutlined,
   Home,
   HourglassEmpty,
   DeleteOutline
@@ -254,21 +253,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {!isMobile && (
-            <IconButton
-              size='small'
-              sx={{
-                color: '#6B7280',
-                backgroundColor: alpha('#000', 0.04),
-                '&:hover': { backgroundColor: alpha('#000', 0.08) },
-                width: 36,
-                height: 36,
-              }}
-            >
-              <SearchOutlined sx={{ fontSize: 20 }} />
-            </IconButton>
-          )}
-
           <IconButton
             size='small'
             onClick={handleNotifOpen}

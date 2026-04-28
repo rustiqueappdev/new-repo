@@ -93,11 +93,8 @@ const getStatusInfo = (status: string): { label: string; bg: string; color: stri
   }
 };
 
-const formatCurrency = (amount: number): string => {
-  if (amount >= 100000) {
-    return `₹${(amount / 100).toLocaleString('en-IN')}`;
-  }
-  return `₹${amount.toLocaleString('en-IN')}`;
+const formatRefundAmount = (paise: number): string => {
+  return `₹${(paise / 100).toLocaleString('en-IN')}`;
 };
 
 const formatDate = (dateStr: string | number | null): string => {
@@ -167,10 +164,7 @@ const RefundsManagement: React.FC = () => {
     const failed = refunds.filter(
       (r) => ['failed', 'rejected'].includes(r.status.toLowerCase())
     ).length;
-    const totalAmount = refunds.reduce((sum, r) => {
-      const amt = r.amount >= 100000 ? r.amount / 100 : r.amount;
-      return sum + amt;
-    }, 0);
+    const totalAmount = refunds.reduce((sum, r) => sum + r.amount / 100, 0);
     return { total, processed, pending, failed, totalAmount };
   }, [refunds]);
 
@@ -251,7 +245,7 @@ const RefundsManagement: React.FC = () => {
       r.userName,
       r.userEmail,
       r.farmhouseName,
-      r.amount >= 100000 ? (r.amount / 100).toString() : r.amount.toString(),
+      (r.amount / 100).toString(),
       (r.totalPrice || 0).toString(),
       (r.refundPercentage || 0).toString(),
       r.reason,
@@ -642,7 +636,7 @@ const RefundsManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#DC2626' }}>
-                          {formatCurrency(refund.amount)}
+                          {formatRefundAmount(refund.amount)}
                         </Typography>
                         {refund.refundPercentage > 0 && (
                           <Typography sx={{ fontSize: '0.65rem', color: '#9CA3AF' }}>
@@ -759,7 +753,7 @@ const RefundsManagement: React.FC = () => {
                     <Box>
                       <Typography sx={{ fontSize: '0.7rem', color: '#9CA3AF' }}>Refund Amount</Typography>
                       <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: '#DC2626' }}>
-                        {formatCurrency(selectedRefund.amount)}
+                        {formatRefundAmount(selectedRefund.amount)}
                       </Typography>
                     </Box>
                     <Box>
