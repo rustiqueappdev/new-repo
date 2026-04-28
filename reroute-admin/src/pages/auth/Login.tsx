@@ -376,14 +376,6 @@ const Login: React.FC = () => {
             </Button>
           </form>
 
-          <Typography variant='caption' sx={{
-            display: 'block',
-            textAlign: 'center',
-            mt: 4,
-            color: alpha('#fff', 0.3),
-          }}>
-            Admin access only • Contact support if you need assistance
-          </Typography>
         </Box>
       </Box>
     </Box>
