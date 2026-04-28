@@ -18,6 +18,7 @@ import RevenueDashboard from './pages/dashboard/RevenueDashboard';
 import AnalyticsDashboard from './pages/dashboard/AnalyticsDashboard';
 import ReviewManagement from './pages/ReviewManagement';
 import CommunicationCenter from './pages/CommunicationCenter';
+import RefundsManagement from './pages/payment/RefundsManagement';
 
 const theme = createTheme({
   palette: {
@@ -222,6 +223,7 @@ function App() {
             <Route path='/revenue' element={<PrivateRoute><RevenueDashboard /></PrivateRoute>} />
             <Route path='/analytics' element={<PrivateRoute><AnalyticsDashboard /></PrivateRoute>} />
             <Route path='/reviews' element={<PrivateRoute><ReviewManagement /></PrivateRoute>} />
+            <Route path='/refunds' element={<PrivateRoute><RefundsManagement /></PrivateRoute>} />
             <Route path='/communications' element={<PrivateRoute><CommunicationCenter /></PrivateRoute>} />
             
             <Route path='/' element={<Navigate to='/dashboard' replace />} />

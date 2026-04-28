@@ -17,7 +17,6 @@ import {
   Popover,
   List,
   ListItem,
-  ListItemText,
   CircularProgress,
   Chip
 } from '@mui/material';
@@ -27,10 +26,11 @@ import {
   NotificationsNoneOutlined,
   SearchOutlined,
   Home,
-  CheckCircle,
-  HourglassEmpty
+  HourglassEmpty,
+  DeleteOutline
 } from '@mui/icons-material';
-import { collection, getDocs, query, where, orderBy, limit, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../config/firebase';
 
 const drawerWidth = 272;
@@ -76,6 +76,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const [notifLoading, setNotifLoading] = useStateHeader(false);
   const [unreadCount, setUnreadCount] = useStateHeader(0);
 
+  const functions = getFunctions();
+  const getAdminNotificationsCall = httpsCallable(functions, 'getAdminNotifications');
+  const manageAdminNotificationsCall = httpsCallable(functions, 'manageAdminNotifications');
+
   const fetchNotifications = async () => {
     try {
       setNotifLoading(true);
@@ -98,27 +102,24 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         });
       });
 
-      // Recent admin_notifications (farmhouse detail updates)
+      // Fetch admin_notifications via Cloud Function (bypasses Firestore rules)
       try {
-        const updatesQ = query(
-          collection(db, 'admin_notifications'),
-          orderBy('created_at', 'desc'),
-          limit(15)
-        );
-        const updatesSnap = await getDocs(updatesQ);
-        updatesSnap.docs.forEach(d => {
-          const data = d.data();
+        const result = await getAdminNotificationsCall();
+        const data = result.data as { notifications: any[] };
+        data.notifications.forEach((n: any) => {
           items.push({
-            id: d.id,
-            type: data.type || 'farmhouse_updated',
-            farmhouse_id: data.farmhouse_id,
-            farmhouse_name: data.farmhouse_name,
-            message: data.message || 'Farmhouse details updated',
-            read: data.read || false,
-            created_at: data.created_at
+            id: n.id,
+            type: n.type || 'farmhouse_updated',
+            farmhouse_id: n.farmhouse_id,
+            farmhouse_name: n.farmhouse_name,
+            message: n.message || 'Farmhouse details updated',
+            read: n.read || false,
+            created_at: n.created_at ? new Date(n.created_at) : null
           });
         });
-      } catch {}
+      } catch (notifErr) {
+        console.error('Error fetching admin_notifications:', notifErr);
+      }
 
       // Sort: unread first, then by created_at desc
       items.sort((a, b) => {
@@ -137,7 +138,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   useEffectHeader(() => {
     fetchNotifications();
-    // Refresh every 60s
     const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -151,14 +151,26 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   const markAllRead = async () => {
     try {
-      const batch = writeBatch(db);
-      const updatesQ = query(collection(db, 'admin_notifications'), where('read', '==', false));
-      const snap = await getDocs(updatesQ);
-      snap.docs.forEach(d => batch.update(d.ref, { read: true }));
-      await batch.commit();
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
-    } catch {}
+      await manageAdminNotificationsCall({ action: 'mark_all_read' });
+      setNotifications(prev => prev.map(n =>
+        n.type === 'pending_approval' ? n : { ...n, read: true }
+      ));
+      const pendingCount = notifications.filter(n => n.type === 'pending_approval').length;
+      setUnreadCount(pendingCount);
+    } catch (err) {
+      console.error('Error marking all read:', err);
+    }
+  };
+
+  const clearAll = async () => {
+    try {
+      await manageAdminNotificationsCall({ action: 'clear_all' });
+      setNotifications(prev => prev.filter(n => n.type === 'pending_approval'));
+      const pendingCount = notifications.filter(n => n.type === 'pending_approval').length;
+      setUnreadCount(pendingCount);
+    } catch (err) {
+      console.error('Error clearing notifications:', err);
+    }
   };
 
   const formatNotifTime = (ts: any) => {
@@ -289,14 +301,25 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           >
             <Box sx={{ px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F3F4F6' }}>
               <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#111827' }}>Notifications</Typography>
-              {unreadCount > 0 && (
-                <Typography
-                  onClick={markAllRead}
-                  sx={{ fontSize: '0.75rem', color: '#10B981', fontWeight: 600, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-                >
-                  Mark all read
-                </Typography>
-              )}
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                {unreadCount > 0 && (
+                  <Typography
+                    onClick={markAllRead}
+                    sx={{ fontSize: '0.75rem', color: '#10B981', fontWeight: 600, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                  >
+                    Mark all read
+                  </Typography>
+                )}
+                {notifications.some(n => n.type !== 'pending_approval') && (
+                  <Typography
+                    onClick={clearAll}
+                    sx={{ fontSize: '0.75rem', color: '#EF4444', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.3, '&:hover': { textDecoration: 'underline' } }}
+                  >
+                    <DeleteOutline sx={{ fontSize: 14 }} />
+                    Clear all
+                  </Typography>
+                )}
+              </Box>
             </Box>
             {notifLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
@@ -316,15 +339,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                       py: 1.5, px: 2,
                       backgroundColor: notif.read ? 'transparent' : alpha('#10B981', 0.04),
                       borderBottom: '1px solid #F9FAFB',
-                      cursor: notif.type === 'pending_approval' ? 'pointer' : 'default',
+                      cursor: 'pointer',
                       '&:hover': { backgroundColor: '#F9FAFB' },
                       alignItems: 'flex-start', gap: 1.5
                     }}
                     onClick={() => {
                       if (notif.type === 'pending_approval') {
                         navigate('/farmhouse-approvals');
-                        handleNotifClose();
+                      } else {
+                        navigate('/farmhouses');
                       }
+                      handleNotifClose();
                     }}
                   >
                     <Box sx={{
