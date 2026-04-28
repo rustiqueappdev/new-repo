@@ -21,6 +21,7 @@ import {
   People,
   LocalOffer,
   Payment,
+  CurrencyExchange,
   CheckCircle,
   TrendingUp,
   BarChart,
@@ -71,6 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onDrawerToggle }) => {
       items: [
         { text: 'Coupons', icon: <LocalOffer />, path: '/coupons' },
         { text: 'Payments', icon: <Payment />, path: '/payments' },
+        { text: 'Refunds', icon: <CurrencyExchange />, path: '/refunds' },
         { text: 'Revenue', icon: <TrendingUp />, path: '/revenue' },
         { text: 'Analytics', icon: <BarChart />, path: '/analytics' },
       ]

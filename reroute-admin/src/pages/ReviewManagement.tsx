@@ -37,18 +37,9 @@ import {
   RateReview,
   Star
 } from '@mui/icons-material';
-import {
-  collection,
-  getDocs,
-  doc,
-  deleteDoc,
-  getDoc,
-  addDoc,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useSnackbar } from '../context/SnackbarContext';
-import { useAuth } from '../context/AuthContext';
+
 import MainLayout from '../components/layout/MainLayout';
 
 interface Review {
@@ -71,7 +62,6 @@ interface ReviewDetail {
 
 const ReviewManagement: React.FC = () => {
   const { showSuccess, showError } = useSnackbar();
-  const { currentUser } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filtered, setFiltered] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,60 +108,27 @@ const ReviewManagement: React.FC = () => {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const snapshot = await getDocs(collection(db, 'reviews'));
-      const reviewsData = await Promise.all(
-        snapshot.docs.map(async (reviewDoc) => {
-          const data = reviewDoc.data();
-          
-          // Fetch user name
-          let userName = 'Unknown User';
-          let userEmail = '';
-          if (data.userId) {
-            try {
-              const userDoc = await getDoc(doc(db, 'users', data.userId));
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                userName = userData.name || userData.displayName || 'Unknown User';
-                userEmail = userData.email || '';
-              }
-            } catch (err) {
-              console.log('Could not fetch user:', err);
-            }
-          }
+      const fns = getFunctions();
+      const getReviewsCall = httpsCallable(fns, 'getReviews');
+      const result = await getReviewsCall();
+      const data = result.data as { reviews: any[] };
 
-          // Fetch farmhouse name
-          let farmhouseName = 'Unknown Farmhouse';
-          if (data.farmhouseId) {
-            try {
-              const farmhouseDoc = await getDoc(doc(db, 'farmhouses', data.farmhouseId));
-              if (farmhouseDoc.exists()) {
-                const farmhouseData = farmhouseDoc.data();
-                farmhouseName = farmhouseData.basicDetails?.name || 
-                               farmhouseData.name || 
-                               'Unknown Farmhouse';
-              }
-            } catch (err) {
-              console.log('Could not fetch farmhouse:', err);
-            }
-          }
-
-          return {
-            review_id: reviewDoc.id,
-            userId: data.userId || '',
-            farmhouseId: data.farmhouseId || '',
-            rating: data.rating || 0,
-            comment: data.comment || '',
-            userName,
-            userEmail,
-            farmhouseName,
-            createdAt: data.createdAt || data.created_at
-          } as Review;
-        })
-      );
+      const reviewsData: Review[] = data.reviews.map((r: any) => ({
+        review_id: r.review_id,
+        userId: r.userId,
+        farmhouseId: r.farmhouseId,
+        rating: r.rating,
+        comment: r.comment,
+        userName: r.userName,
+        userEmail: r.userEmail,
+        farmhouseName: r.farmhouseName,
+        createdAt: r.createdAt ? new Date(r.createdAt) : null
+      }));
 
       setReviews(reviewsData);
     } catch (error) {
       console.error('Error fetching reviews:', error);
+      showError('Failed to load reviews');
     } finally {
       setLoading(false);
     }
@@ -182,21 +139,23 @@ const ReviewManagement: React.FC = () => {
     setDetailsModalOpen(true);
 
     try {
-      // Fetch complete user details
-      const userDoc = await getDoc(doc(db, 'users', review.userId));
-      const userDetails = userDoc.exists() ? userDoc.data() : null;
-
-      // Fetch complete farmhouse details
-      const farmhouseDoc = await getDoc(doc(db, 'farmhouses', review.farmhouseId));
-      const farmhouseDetails = farmhouseDoc.exists() ? farmhouseDoc.data() : null;
+      const fns = getFunctions();
+      const getReviewDetailsCall = httpsCallable(fns, 'getReviewDetails');
+      const result = await getReviewDetailsCall({ userId: review.userId, farmhouseId: review.farmhouseId });
+      const data = result.data as { userDetails: any; farmhouseDetails: any };
 
       setSelectedReviewDetails({
         review,
-        userDetails,
-        farmhouseDetails
+        userDetails: data.userDetails,
+        farmhouseDetails: data.farmhouseDetails
       });
     } catch (error) {
       console.error('Error fetching details:', error);
+      setSelectedReviewDetails({
+        review,
+        userDetails: { name: review.userName, email: review.userEmail },
+        farmhouseDetails: { basicDetails: { name: review.farmhouseName } }
+      });
     } finally {
       setLoadingDetails(false);
     }
@@ -212,24 +171,9 @@ const ReviewManagement: React.FC = () => {
 
     try {
       setDeleting(true);
-      await deleteDoc(doc(db, 'reviews', reviewToDelete.review_id));
-
-      try {
-        await addDoc(collection(db, 'audit_trail'), {
-          action: 'review_deleted',
-          entity_type: 'review',
-          entity_id: reviewToDelete.review_id,
-          performed_by: currentUser?.email || 'admin',
-          details: {
-            review_rating: reviewToDelete.rating,
-            user_name: reviewToDelete.userName,
-            farmhouse_name: reviewToDelete.farmhouseName
-          },
-          timestamp: serverTimestamp()
-        });
-      } catch (auditError) {
-        console.warn('Audit trail write failed (permission issue):', auditError);
-      }
+      const fns = getFunctions();
+      const deleteReviewCall = httpsCallable(fns, 'deleteReview');
+      await deleteReviewCall({ reviewId: reviewToDelete.review_id, farmhouseId: reviewToDelete.farmhouseId });
 
       showSuccess('Review deleted successfully');
       fetchReviews();
