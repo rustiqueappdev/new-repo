@@ -341,6 +341,36 @@ const FarmhouseDetailModal: React.FC<FarmhouseDetailModalProps> = ({
                     {getFarmhouseDescription(farmhouse)}
                   </Typography>
 
+                  {/* Registration and Approval Dates */}
+                  <Paper sx={{ p: 2.5, mb: 3, bgcolor: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 6 }}>
+                        <Typography variant='caption' color='text.secondary' sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                          Registered On
+                        </Typography>
+                        <Typography variant='body2' fontWeight={500} sx={{ mt: 0.5 }}>
+                          {(() => {
+                            const ts = (farmhouse as any).created_at || (farmhouse as any).createdAt;
+                            if (!ts) return 'N/A';
+                            try { const d = ts.toDate ? ts.toDate() : new Date(ts); return d.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return 'N/A'; }
+                          })()}
+                        </Typography>
+                      </Grid>
+                      <Grid size={{ xs: 6 }}>
+                        <Typography variant='caption' color='text.secondary' sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                          {farmhouse.status === 'approved' ? 'Approved On' : farmhouse.status === 'rejected' ? 'Rejected On' : 'Pending Since'}
+                        </Typography>
+                        <Typography variant='body2' fontWeight={500} sx={{ mt: 0.5 }}>
+                          {(() => {
+                            const ts = (farmhouse as any).approved_at || (farmhouse as any).rejected_at;
+                            if (!ts) return farmhouse.status === 'pending' ? 'Awaiting review' : 'N/A';
+                            try { const d = ts.toDate ? ts.toDate() : new Date(ts); return d.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return 'N/A'; }
+                          })()}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+
                   <Grid container spacing={2} sx={{ mb: 3 }}>
                     <Grid size={{ xs: 6, md: 3 }}>
                       <Paper sx={{ p: 2, textAlign: 'center' }}>

@@ -27,12 +27,11 @@ import {
   Tabs,
   Tab,
   Alert,
-  DialogContentText
+  Rating
 } from '@mui/material';
 import {
   Visibility,
   Edit,
-  Delete,
   CheckCircle,
   Cancel,
   Image as ImageIcon,
@@ -44,9 +43,10 @@ import {
   AttachMoney,
   AccountBalance,
   Badge,
-  Close
+  Close,
+  PersonOutline
 } from '@mui/icons-material';
-import { collection, getDocs, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, addDoc, serverTimestamp, query, where, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { useAuth } from '../../context/AuthContext';
@@ -140,8 +140,8 @@ const AllFarmhouses: React.FC = () => {
   const [detailsTab, setDetailsTab] = useState(0);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [farmhouseToDelete, setFarmhouseToDelete] = useState<FarmhouseData | null>(null);
+  const [farmhouseReviews, setFarmhouseReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const [editData, setEditData] = useState({
     commission_percentage: 0,
     status: 'approved'
@@ -214,6 +214,7 @@ const AllFarmhouses: React.FC = () => {
     setSelectedFarmhouse(farmhouse);
     setDetailsModalOpen(true);
     setDetailsTab(0);
+    if (farmhouse.farmhouse_id) fetchFarmhouseReviews(farmhouse.farmhouse_id);
   };
 
   const handleEdit = (farmhouse: FarmhouseData) => {
@@ -324,7 +325,7 @@ const AllFarmhouses: React.FC = () => {
       setEditModalOpen(false);
       showSuccess('Farmhouse updated successfully');
 
-      // Audit trail (non-blocking, don't fail the edit if this errors)
+      // Audit trail + admin notification (non-blocking)
       try {
         await addDoc(collection(db, 'audit_trail'), {
           action: 'farmhouse_updated',
@@ -337,8 +338,17 @@ const AllFarmhouses: React.FC = () => {
           },
           timestamp: serverTimestamp()
         });
+        await addDoc(collection(db, 'admin_notifications'), {
+          type: 'farmhouse_updated',
+          farmhouse_id: selectedFarmhouse.farmhouse_id,
+          farmhouse_name: getName(selectedFarmhouse),
+          message: `Farmhouse details updated by admin`,
+          updated_by: currentUser?.email || 'admin',
+          read: false,
+          created_at: serverTimestamp()
+        });
       } catch (auditError) {
-        console.warn('Audit trail write failed (permission issue):', auditError);
+        console.warn('Audit/notification write failed:', auditError);
       }
     } catch (error: any) {
       console.error('Error updating farmhouse:', error);
@@ -348,42 +358,33 @@ const AllFarmhouses: React.FC = () => {
     }
   };
 
-  const handleOpenDeleteDialog = (farmhouse: FarmhouseData) => {
-    setFarmhouseToDelete(farmhouse);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDelete = async () => {
-    if (!farmhouseToDelete?.farmhouse_id) return;
-
+  const fetchFarmhouseReviews = async (farmhouseId: string) => {
     try {
-      await deleteDoc(doc(db, 'farmhouses', farmhouseToDelete.farmhouse_id));
-
-      // Update local state immediately
-      setFarmhouses(prev => prev.filter(f => f.farmhouse_id !== farmhouseToDelete.farmhouse_id));
-      setDeleteDialogOpen(false);
-      setFarmhouseToDelete(null);
-      showSuccess('Farmhouse deleted successfully');
-
-      // Audit trail (non-blocking)
-      try {
-        await addDoc(collection(db, 'audit_trail'), {
-          action: 'farmhouse_deleted',
-          entity_type: 'farmhouse',
-          entity_id: farmhouseToDelete.farmhouse_id,
-          performed_by: currentUser?.email || 'admin',
-          details: {
-            farmhouse_name: getName(farmhouseToDelete),
-            location: getLocation(farmhouseToDelete)
-          },
-          timestamp: serverTimestamp()
-        });
-      } catch (auditError) {
-        console.warn('Audit trail write failed (permission issue):', auditError);
-      }
-    } catch (error) {
-      console.error('Error deleting farmhouse:', error);
-      showError('Failed to delete farmhouse');
+      setReviewsLoading(true);
+      const q = query(collection(db, 'reviews'), where('farmhouseId', '==', farmhouseId));
+      const snapshot = await getDocs(q);
+      const reviewsData = await Promise.all(
+        snapshot.docs.map(async (reviewDoc) => {
+          const data = reviewDoc.data();
+          let userName = 'Unknown User';
+          if (data.userId) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', data.userId));
+              if (userDoc.exists()) {
+                const ud = userDoc.data();
+                userName = ud.name || ud.displayName || 'Unknown User';
+              }
+            } catch {}
+          }
+          return { id: reviewDoc.id, ...data, userName };
+        })
+      );
+      setFarmhouseReviews(reviewsData);
+    } catch (err) {
+      console.error('Error fetching reviews:', err);
+      setFarmhouseReviews([]);
+    } finally {
+      setReviewsLoading(false);
     }
   };
 
@@ -649,11 +650,6 @@ const AllFarmhouses: React.FC = () => {
                             </Tooltip>
                           </>
                         )}
-                        <Tooltip title='Delete'>
-                          <IconButton size='small' onClick={() => handleOpenDeleteDialog(farmhouse)} sx={{ color: '#9CA3AF', '&:hover': { color: '#EF4444', backgroundColor: '#FEF2F2' } }}>
-                            <Delete sx={{ fontSize: 18 }} />
-                          </IconButton>
-                        </Tooltip>
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -813,6 +809,7 @@ const AllFarmhouses: React.FC = () => {
                 <Tab label='Pricing' />
                 <Tab label='Amenities & Rules' />
                 <Tab label='KYC & Bank' />
+                <Tab label={`Reviews (${farmhouseReviews.length})`} />
               </Tabs>
 
               {detailsTab === 0 && (
@@ -925,6 +922,34 @@ const AllFarmhouses: React.FC = () => {
                         <Typography variant='body2' color='text.secondary'>Area</Typography>
                         <Typography variant='body1' fontWeight='500'>
                           {selectedFarmhouse.basicDetails?.area || 'N/A'}
+                        </Typography>
+                      </Grid>
+                      <Grid size={{ xs: 6 }}>
+                        <Typography variant='body2' color='text.secondary'>Registered On</Typography>
+                        <Typography variant='body1' fontWeight='500'>
+                          {(() => {
+                            const ts = selectedFarmhouse.created_at || selectedFarmhouse.createdAt;
+                            if (!ts) return 'N/A';
+                            try {
+                              const d = ts.toDate ? ts.toDate() : new Date(ts);
+                              return d.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                            } catch { return 'N/A'; }
+                          })()}
+                        </Typography>
+                      </Grid>
+                      <Grid size={{ xs: 6 }}>
+                        <Typography variant='body2' color='text.secondary'>
+                          {selectedFarmhouse.status === 'approved' ? 'Approved On' : selectedFarmhouse.status === 'rejected' ? 'Rejected On' : 'Approval Status'}
+                        </Typography>
+                        <Typography variant='body1' fontWeight='500'>
+                          {(() => {
+                            const ts = (selectedFarmhouse as any).approved_at || (selectedFarmhouse as any).rejected_at;
+                            if (!ts) return selectedFarmhouse.status || 'N/A';
+                            try {
+                              const d = ts.toDate ? ts.toDate() : new Date(ts);
+                              return d.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                            } catch { return 'N/A'; }
+                          })()}
                         </Typography>
                       </Grid>
                       <Grid size={{ xs: 12 }}>
@@ -1234,6 +1259,51 @@ const AllFarmhouses: React.FC = () => {
                   )}
                 </Box>
               )}
+
+              {detailsTab === 5 && (
+                <Box>
+                  {reviewsLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                      <CircularProgress size={36} sx={{ color: '#10B981' }} />
+                    </Box>
+                  ) : farmhouseReviews.length === 0 ? (
+                    <Box sx={{ textAlign: 'center', py: 6 }}>
+                      <PersonOutline sx={{ fontSize: 64, color: '#E5E7EB', mb: 2 }} />
+                      <Typography color='text.secondary' variant='h6'>No reviews yet</Typography>
+                      <Typography color='text.secondary' variant='body2'>Reviews will appear once users rate this farmhouse</Typography>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {farmhouseReviews.map((review) => (
+                        <Paper key={review.id} sx={{ p: 2.5, border: '1px solid #F3F4F6' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                            <Box sx={{ width: 34, height: 34, borderRadius: '50%', background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+                              <PersonOutline sx={{ fontSize: 18 }} />
+                            </Box>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{review.userName || 'Anonymous'}</Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Rating value={review.rating} readOnly size='small' sx={{ '& .MuiRating-iconFilled': { color: '#F59E0B' } }} />
+                                <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF', ml: 0.5 }}>{review.rating}/5</Typography>
+                              </Box>
+                            </Box>
+                            <Typography sx={{ fontSize: '0.75rem', color: '#9CA3AF' }}>
+                              {(() => {
+                                const ts = review.createdAt || review.created_at;
+                                if (!ts) return '';
+                                try { const d = ts.toDate ? ts.toDate() : new Date(ts); return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return ''; }
+                              })()}
+                            </Typography>
+                          </Box>
+                          {review.comment && (
+                            <Typography sx={{ fontSize: '0.875rem', color: '#374151' }}>{review.comment}</Typography>
+                          )}
+                        </Paper>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
@@ -1287,26 +1357,6 @@ const AllFarmhouses: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete Farmhouse</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete <strong>{farmhouseToDelete && getName(farmhouseToDelete)}</strong>?
-            This action cannot be undone.
-            <br /><br />
-            <Alert severity='warning'>
-              Deleting a farmhouse will remove all associated data including bookings history.
-            </Alert>
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDelete} color='error' variant='contained'>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
     </MainLayout>
   );
 };
