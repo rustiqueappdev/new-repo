@@ -642,6 +642,28 @@ export const getReviewDetails = functions.https.onCall(async (data, context) => 
   }
 });
 
+async function fetchRazorpayRefundStatus(
+  razorpayRefundId: string
+): Promise<string | null> {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret || !razorpayRefundId) return null;
+
+  try {
+    const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+    const resp = await fetch(
+      `https://api.razorpay.com/v1/refunds/${razorpayRefundId}`,
+      { headers: { Authorization: `Basic ${auth}` } }
+    );
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return (data as Record<string, unknown>).status as string || null;
+  } catch (e) {
+    console.log('Razorpay API error for', razorpayRefundId, e);
+    return null;
+  }
+}
+
 export const getRefunds = functions.https.onCall(async (_data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
@@ -657,17 +679,24 @@ export const getRefunds = functions.https.onCall(async (_data, context) => {
     const refunds: Array<Record<string, unknown>> = [];
     const bookingIds = new Set<string>();
     const userIds = new Set<string>();
+    const docsToUpdate: Array<{
+      ref: FirebaseFirestore.DocumentReference;
+      razorpayId: string;
+      index: number;
+    }> = [];
 
     for (const refDoc of refundsSnap.docs) {
       const d = refDoc.data();
       const bookingId = d.bookingId || d.booking_id || '';
       const userId = d.userId || d.user_id || '';
+      const razorpayId = d.refundId || d.refund_id || '';
       if (bookingId) bookingIds.add(bookingId);
       if (userId) userIds.add(userId);
 
+      const idx = refunds.length;
       refunds.push({
         id: refDoc.id,
-        refundId: d.refundId || d.refund_id || '',
+        refundId: razorpayId,
         bookingId,
         paymentId: d.paymentId || d.payment_id || '',
         userId,
@@ -679,6 +708,35 @@ export const getRefunds = functions.https.onCall(async (_data, context) => {
         updatedAt: d.updatedAt?.toMillis?.() ||
           d.updated_at?.toMillis?.() || null,
       });
+
+      if (razorpayId.startsWith('rfnd_')) {
+        docsToUpdate.push({ ref: refDoc.ref, razorpayId, index: idx });
+      }
+    }
+
+    const statusPromises = docsToUpdate.map((item) =>
+      fetchRazorpayRefundStatus(item.razorpayId)
+    );
+    const statuses = await Promise.all(statusPromises);
+
+    const batch = db.batch();
+    let batchCount = 0;
+    for (let i = 0; i < docsToUpdate.length; i++) {
+      const realStatus = statuses[i];
+      if (!realStatus) continue;
+      const current = refunds[docsToUpdate[i].index].status as string;
+      if (realStatus !== current) {
+        refunds[docsToUpdate[i].index].status = realStatus;
+        batch.update(docsToUpdate[i].ref, {
+          status: realStatus,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        batchCount++;
+      }
+    }
+    if (batchCount > 0) {
+      await batch.commit();
+      console.log(`Updated ${batchCount} refund statuses from Razorpay`);
     }
 
     const bookingMap: Record<string, Record<string, unknown>> = {};
