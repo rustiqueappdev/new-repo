@@ -19,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: reroute-admin
-        run: npm ci
+        run: npm install
 
       - name: Build
         working-directory: reroute-admin
