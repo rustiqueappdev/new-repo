@@ -162,6 +162,7 @@ const AllFarmhouses: React.FC = () => {
 
   useEffect(() => {
     fetchFarmhouses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchFarmhouses = async () => {

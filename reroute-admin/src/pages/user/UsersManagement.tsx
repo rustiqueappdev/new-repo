@@ -26,7 +26,6 @@ import {
   DialogContentText
 } from '@mui/material';
 import {
-  Add,
   Edit,
   Visibility,
   Delete,
@@ -62,6 +61,7 @@ const UsersManagement: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchUsers = async () => {
@@ -204,12 +204,6 @@ const UsersManagement: React.FC = () => {
       console.error('Error deleting user:', err);
       showError('Failed to delete user');
     }
-  };
-
-  const openCreateDialog = () => {
-    setSelectedUser(null);
-    setDialogMode('create');
-    setDialogOpen(true);
   };
 
   const openEditDialog = (user: User) => {

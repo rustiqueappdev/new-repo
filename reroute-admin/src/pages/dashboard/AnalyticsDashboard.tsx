@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, LineChart, Line, Legend, AreaChart, Area, ComposedChart,
+  Tooltip, LineChart, Line, Legend, Area, ComposedChart,
 } from 'recharts';
 import {
   EventNote, CheckCircleOutline, CancelOutlined, TrendingDown, TrendingUp,
